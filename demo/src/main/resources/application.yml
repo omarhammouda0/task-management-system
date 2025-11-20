@@ -1,0 +1,267 @@
+# ==========================================
+# TASK MANAGEMENT SYSTEM - CONFIGURATION
+# ==========================================
+spring:
+  application:
+    name: task-management-system
+
+  # ==========================================
+  # DATASOURCE (PostgreSQL)
+  # ==========================================
+  datasource:
+    url: jdbc:postgresql://localhost:5432/taskmanagement
+    username: taskadmin
+    password: Task2024!
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  # ==========================================
+  # JPA / HIBERNATE
+  # ==========================================
+  jpa:
+    hibernate:
+      ddl-auto: validate  # Flyway manages schema
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+        enable_lazy_load_no_trans: false
+    open-in-view: false
+
+  # ==========================================
+  # FLYWAY (Database Migrations)
+  # ==========================================
+  flyway:
+    enabled: false
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    baseline-version: 0
+    validate-on-migrate: true
+
+  # ==========================================
+  # REDIS (Caching & Sessions)
+  # ==========================================
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 60000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+          max-wait: -1ms
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 600000  # 10 minutes in milliseconds
+      cache-null-values: false
+
+  # ==========================================
+  # ELASTICSEARCH
+  # ==========================================
+  elasticsearch:
+    uris: http://localhost:9200
+    connection-timeout: 10s
+    socket-timeout: 60s
+    username:
+    password:
+
+  # ==========================================
+  # RABBITMQ (Message Queue)
+  # ==========================================
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    listener:
+      simple:
+        retry:
+          enabled: true
+          initial-interval: 3000
+          max-attempts: 3
+          multiplier: 2
+        acknowledge-mode: auto
+        prefetch: 10
+
+  # ==========================================
+  # MAIL (Email Service - Disabled by Default)
+  # ==========================================
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: # Add your Gmail when ready
+    password: # Add your Gmail App Password when ready
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+    # Set to false to disable email temporarily
+    test-connection: false
+
+  # ==========================================
+  # FILE UPLOAD
+  # ==========================================
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 10MB
+      file-size-threshold: 2MB
+
+  # ==========================================
+  # THYMELEAF (Email Templates)
+  # ==========================================
+  thymeleaf:
+    cache: false
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+
+# ==========================================
+# SECURITY / JWT CONFIGURATION
+# ==========================================
+jwt:
+  secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B59703373367639792442264529482B4D6251655468576D5A7134743777217A25432A
+  access-token-expiration: 900000
+  refresh-token-expiration: 604800000
+  issuer: task-management-system
+
+# ==========================================
+# MINIO (Object Storage)
+# ==========================================
+minio:
+  url: http://localhost:9000
+  access-key: minioadmin
+  secret-key: minioadmin
+  bucket-name: task-management
+  auto-create-bucket: true
+
+# ==========================================
+# RATE LIMITING (Redisson/Bucket4j)
+# ==========================================
+rate-limit:
+  enabled: true
+  default-limit: 100
+  default-duration: 60
+
+# ==========================================
+# SPRINGDOC / SWAGGER / OPENAPI
+# ==========================================
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+    doc-expansion: none
+    filter: true
+  show-actuator: false
+
+# ==========================================
+# ACTUATOR (Health & Monitoring)
+# ==========================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    redis:
+      enabled: true
+    db:
+      enabled: true
+    elasticsearch:
+      enabled: true
+    rabbit:
+      enabled: true
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http:
+          server:
+            requests: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+# ==========================================
+# LOGGING CONFIGURATION
+# ==========================================
+logging:
+  level:
+    root: INFO
+    com.taskmanagement: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.springframework.data.elasticsearch: DEBUG
+    org.springframework.amqp: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# ==========================================
+# SERVER CONFIGURATION
+# ==========================================
+server:
+  port: 8080
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: on_param
+    include-exception: false
+  servlet:
+    context-path: /
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+# ==========================================
+# APPLICATION-SPECIFIC PROPERTIES
+# ==========================================
+app:
+  name: Task Management System
+  version: 1.0.0
+  description: Enterprise-grade task management platform
+  cors:
+    allowed-origins: http://localhost:3000,http://localhost:4200
+    allowed-methods: GET,POST,PUT,DELETE,PATCH,OPTIONS
+    allowed-headers: "*"
+    allow-credentials: true
+    max-age: 3600
+
