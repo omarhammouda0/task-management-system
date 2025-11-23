@@ -22,6 +22,8 @@ public class UserMapper {
                 .role ( dto.role ( ) != null ? dto.role ( ) : Role.MEMBER )
                 .emailVerified ( false )
                 .status ( dto.userStatus () != null ? dto.userStatus () : UserStatus.ACTIVE )
+
+
                 .build ( );
     }
 

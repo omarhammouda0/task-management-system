@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SqlDialectMappings">
+    <file url="file://$PROJECT_DIR$/demo/src/main/resources/db/migration/V4__Create_teams_table.sql" dialect="PostgreSQL" />
+    <file url="file://$PROJECT_DIR$/demo/src/main/resources/db/migration/V5__Create_team_members_table.sql" dialect="PostgreSQL" />
+  </component>
+</project>

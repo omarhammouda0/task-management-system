@@ -1,6 +1,5 @@
 package com.taskmanagement.common.exception.ErrorCode;
 
-import jakarta.persistence.AssociationOverride;
 
 public enum ErrorCode {
     EMAIL_ALREADY_REGISTERED,
@@ -19,8 +18,14 @@ public enum ErrorCode {
     LAST_ADMIN_ROLE_CHANGE_NOT_ALLOWED,
     LAST_ADMIN_DEACTIVATION_NOT_ALLOWED,
     ACCESS_DENIED,
-    CANNOT_DELETE_OWN_ACCOUNT
+    CANNOT_DELETE_OWN_ACCOUNT,
+    TEAM_NOT_FOUND,
+    TEAM_NAME_ALREADY_EXISTS,
+    USER_ALREADY_IN_TEAM ,
+    TEAM_MEMBER_NOT_FOUND,
+    TEAM_ALREADY_ARCHIVED,
+    TEAM_ALREADY_DELETED,
+    TEAM_ALREADY_ACTIVE
     ;
-
 
 }
