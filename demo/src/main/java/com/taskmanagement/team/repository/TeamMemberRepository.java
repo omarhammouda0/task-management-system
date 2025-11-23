@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
@@ -26,4 +27,16 @@ public interface TeamMemberRepository extends JpaRepository<TeamMember, Long> {
     List <TeamMember> findByTeamId(Long teamId);
 
 
+    void deleteTeamMembersByTeamIdAndUserId(Long teamId , Long userId);
+
+    Optional <TeamMember> findByTeamIdAndUserId(Long teamId , Long userId);
+
+
+    @Query("SELECT CASE WHEN COUNT(tm) <= 1 THEN true ELSE false END " +
+            "FROM TeamMember tm " +
+            "WHERE tm.teamId = :teamId " +
+            "AND tm.role = 'OWNER' " +
+            "AND tm.status = 'ACTIVE'")
+
+    boolean isLastOwner(@Param("teamId") Long teamId);
 }

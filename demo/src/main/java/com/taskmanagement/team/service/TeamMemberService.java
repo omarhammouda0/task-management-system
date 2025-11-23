@@ -15,14 +15,14 @@ public interface TeamMemberService {
 
     TeamMemberResponseDto updateMemberRole (UpdateMemberRoleDto dto);
 
-    Page<TeamMemberResponseDto> getMembersByTeam (Long teamId , Pageable pageable);
+    void leaveTeam (Long teamId );
 
-    Page <TeamMemberResponseDto> getTeamsByUser (Long userId , Pageable pageable);
+    Page<TeamMemberResponseDto> getMembersByTeam (Long teamId , Pageable pageable);
 
     TeamMemberResponseDto getMember ( Long userId , Long teamId);
 
-    boolean isMemberInTeam (Long teamId, Long userId);
+    Long getTotalMembersCountForAdmin (Long teamId);
 
-    Long getMembersCount (Long teamId);
+    Long getActiveMembersCount (Long teamId);
 
 }
