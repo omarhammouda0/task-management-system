@@ -2,7 +2,6 @@ package com.taskmanagement.team.service;
 
 import com.taskmanagement.common.exception.types.Exceptions.AccessDeniedException;
 import com.taskmanagement.common.exception.types.Exceptions.UserAlreadyInTeamException;
-import com.taskmanagement.common.exception.types.Exceptions.UserNotFoundException;
 import com.taskmanagement.common.exception.types.Exceptions.UserNotInTeamException;
 import com.taskmanagement.team.dto.AddMemberRequestDto;
 import com.taskmanagement.team.dto.TeamMemberResponseDto;
@@ -10,11 +9,11 @@ import com.taskmanagement.team.dto.UpdateMemberRoleDto;
 import com.taskmanagement.team.enums.TeamMemberStatus;
 import com.taskmanagement.team.mapper.TeamMemberMapper;
 import com.taskmanagement.team.repository.TeamMemberRepository;
+import com.taskmanagement.user.enums.Role;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.Objects;
@@ -133,27 +132,123 @@ public class TeamMemberServiceImplementation implements TeamMemberService {
     }
 
     @Override
+    @Transactional
     public void leaveTeam(Long teamId ) {
 
+        Objects.requireNonNull ( teamId , "The team can not be null" );
+
+        var currentUser = securityHelper.getCurrentUser ( );
+        securityHelper.isUserActive ( currentUser );
+
+        var team = securityHelper.teamExistsAndActiveCheck ( teamId );
+
+        if (! securityHelper.IsMemberInTheTeam (  currentUser.getId () , team.getId () ) )
+            throw new UserNotInTeamException ( currentUser.getId () , teamId );
+
+        if (securityHelper.isOwner ( currentUser.getId ( ) , teamId ) &&
+                securityHelper.isLastOwner ( teamId ))
+
+            throw new AccessDeniedException ( "The last owner of the team cannot leave the team. " +
+                    "Please transfer ownership before leaving the team." );
+
+        if (securityHelper.isLastActiveTeamMember ( teamId ))
+
+            throw new AccessDeniedException ( "The last active member of the team cannot leave the team. " +
+                    "Please delete the team or add new members before leaving the team." );
+
+        var teamMember = securityHelper.getTeamMember ( teamId , currentUser.getId () );
+
+        teamMember.setStatus ( TeamMemberStatus.INACTIVE );
+
+        teamMemberRepository.save ( teamMember );
+
+        log.info("User {} left team {}", currentUser.getId(), teamId);
+
+
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<TeamMemberResponseDto> getMembersByTeam(Long teamId , Pageable pageable) {
-        return null;
+
+        var currentUser = securityHelper.getCurrentUser ( );
+        securityHelper.isUserActive ( currentUser );
+
+        var team = securityHelper.teamExistsAndActiveCheck ( teamId );
+
+        if (currentUser.getRole ( ) != Role.ADMIN &&
+                !securityHelper.isTeamOwnerOrAdmin ( teamId , currentUser.getId ( ) ))
+
+            throw new AccessDeniedException ( "Only team owner or admins can view members " );
+
+        return teamMemberRepository.findByTeamIdAndStatusActive ( teamId , pageable )
+                .map ( teamMember -> teamMemberMapper.toDto
+                        ( teamMember , securityHelper.getUserById ( teamMember.getUserId ( ) ) ) );
+
     }
 
     @Override
-    public TeamMemberResponseDto getMember(Long userId , Long teamId) {
-        return null;
+    @Transactional (readOnly = true)
+
+    public TeamMemberResponseDto getMember(Long teamId , Long userId) {
+
+        Objects.requireNonNull ( userId , "The user can not be null" );
+        Objects.requireNonNull ( teamId , "The team can not be null" );
+
+        var currentUser = securityHelper.getCurrentUser ( );
+        securityHelper.isUserActive ( currentUser );
+
+        var team = securityHelper.teamExistsAndActiveCheck ( teamId );
+
+            if (currentUser.getRole ()!= Role.ADMIN &&
+                    !securityHelper.isTeamOwnerOrAdmin ( teamId , currentUser.getId () ) &&
+                    !securityHelper.isSelfOperation ( currentUser.getId () , userId ) )
+
+                throw new AccessDeniedException
+                        (  "Only team owner , admins or the user themselves can view member details " );
+
+
+            return teamMemberRepository.findByTeamIdAndUserId ( teamId , userId )
+                    .map ( teamMember -> teamMemberMapper.toDto
+                            (  teamMember , securityHelper.getUserById ( teamMember.getUserId () ) ) )
+                    .orElseThrow ( () -> new UserNotInTeamException ( userId , teamId ) );
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Long getTotalMembersCountForAdmin(Long teamId) {
-        return 0L;
+
+        Objects.requireNonNull ( teamId , "Team ID cannot be null" );
+
+        var currentUser = securityHelper.getCurrentUser ( );
+        securityHelper.isUserActive ( currentUser );
+
+
+        if (currentUser.getRole ( ) != Role.ADMIN) {
+            throw new AccessDeniedException ( "Only system admins can access member statistics" );
+        }
+
+        securityHelper.teamExists (  teamId );
+
+        return teamMemberRepository.countByTeamId ( teamId );
     }
 
     @Override
+    @Transactional (readOnly = true)
     public Long getActiveMembersCount(Long teamId) {
-        return 0L;
+
+        Objects.requireNonNull ( teamId , "Team ID cannot be null" );
+
+        var currentUser = securityHelper.getCurrentUser ( );
+        securityHelper.isUserActive ( currentUser );
+
+        if (currentUser.getRole ( ) != Role.ADMIN) {
+            throw new AccessDeniedException ( "Only system admins can access member statistics" );
+        }
+
+        securityHelper.teamExists (  teamId );
+
+        return teamMemberRepository.countByTeamIdAndStatusActive ( teamId );
+
     }
 }

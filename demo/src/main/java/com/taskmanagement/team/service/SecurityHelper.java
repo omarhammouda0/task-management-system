@@ -2,6 +2,7 @@ package com.taskmanagement.team.service;
 
 import com.taskmanagement.common.exception.types.Exceptions.*;
 import com.taskmanagement.team.entity.Team;
+import com.taskmanagement.team.entity.TeamMember;
 import com.taskmanagement.team.enums.TeamRole;
 import com.taskmanagement.team.enums.TeamStatus;
 import com.taskmanagement.team.repository.TeamMemberRepository;
@@ -40,24 +41,24 @@ public class SecurityHelper {
 
     protected void isUserActive(User currentUser) {
 
-        if (currentUser.getStatus() != UserStatus.ACTIVE) {
-            throw new UserNotActiveException (currentUser.getEmail());
+        if (currentUser.getStatus ( ) != UserStatus.ACTIVE) {
+            throw new UserNotActiveException ( currentUser.getEmail ( ) );
         }
     }
 
     protected User getUserById(Long userId) {
 
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException(userId));
+        return userRepository.findById ( userId )
+                .orElseThrow ( () -> new UserNotFoundException ( userId ) );
     }
 
     protected User userExistsAndActiveCheck(Long userId) {
 
-        var user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException(userId));
+        var user = userRepository.findById ( userId )
+                .orElseThrow ( () -> new UserNotFoundException ( userId ) );
 
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new UserNotActiveException(user.getEmail());
+        if (user.getStatus ( ) != UserStatus.ACTIVE) {
+            throw new UserNotActiveException ( user.getEmail ( ) );
         }
 
         return user;
@@ -75,9 +76,15 @@ public class SecurityHelper {
 
     }
 
-    protected boolean isMemberInTeam( Long teamId , User userToAdd  ) {
+    protected boolean IsMemberInTheTeam (Long userId, Long teamId) {
 
-        return teamMemberRepository.existsByTeamIdAndUserId ( teamId , userToAdd.getId ( ) ) ;
+        return teamMemberRepository.existsByTeamIdAndUserId ( teamId, userId ) ;
+
+    }
+
+    protected boolean isMemberInTeam(Long teamId , User userToAdd) {
+
+        return teamMemberRepository.existsByTeamIdAndUserId ( teamId , userToAdd.getId ( ) );
     }
 
     protected boolean isOwner(Long userId , Long teamId) {
@@ -85,30 +92,56 @@ public class SecurityHelper {
         return teamMemberRepository.existsByTeamIdAndUserIdAndRole ( teamId , userId , TeamRole.OWNER );
     }
 
-    protected boolean isSelfOperation (Long currentUserId , Long targetUserId) {
+    protected boolean isSelfOperation(Long currentUserId , Long targetUserId) {
 
         return currentUserId.equals ( targetUserId );
     }
 
-    protected boolean isLastOwner (Long teamId ) {
+    protected boolean isLastOwner(Long teamId) {
 
         return teamMemberRepository.isLastOwner ( teamId );
 
     }
 
-    protected void roleTransitionValidation (Long teamId , TeamRole currentRole , TeamRole newRole ) {
+    protected void roleTransitionValidation(Long teamId , TeamRole currentRole , TeamRole newRole) {
 
-        if ( currentRole == newRole )
+        if (currentRole == newRole)
             throw new InvalidRoleTransitionException ( "New role must be different from current role " );
 
 
-        if (currentRole.equals ( TeamRole.OWNER ) && isLastOwner ( teamId ) )
+        if (currentRole.equals ( TeamRole.OWNER ) && isLastOwner ( teamId ))
             throw new InvalidRoleTransitionException ( "Cannot demote the last owner " );
 
 
     }
 
+    protected TeamMember getTeamMember(Long teamId , Long userId) {
 
+        return teamMemberRepository.findByTeamIdAndUserId ( teamId , userId )
+                .orElseThrow ( () -> new UserNotInTeamException ( userId , teamId ) );
+
+    }
+
+    protected boolean isLastActiveTeamMember(Long teamId) {
+
+        return teamMemberRepository.isLastActiveTeamMember ( teamId );
+
+    }
+
+    protected boolean isTeamOwnerOrAdmin(Long teamId , Long userId) {
+
+        return teamMemberRepository.existsByTeamIdAndUserIdAndRoleIn ( teamId , userId ,
+                java.util.Arrays.asList ( TeamRole.OWNER , TeamRole.ADMIN ) );
+
+    }
+
+    protected void teamExists(Long teamId) {
+
+        if ( ! teamRepository.existsById ( teamId ) )
+            throw new TeamNotFoundException ( teamId );
+    }
 }
+
+
 
 

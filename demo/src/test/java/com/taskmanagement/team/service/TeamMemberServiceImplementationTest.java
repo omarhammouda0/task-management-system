@@ -447,7 +447,6 @@ class TeamMemberServiceImplementationTest {
 
         private Long teamId;
         private Long userIdToRemove;
-        private User userToRemove;
         private TeamMember memberToRemove;
 
         @BeforeEach
@@ -455,7 +454,7 @@ class TeamMemberServiceImplementationTest {
             teamId = activeTeam.getId();
             userIdToRemove = 5L;
 
-            userToRemove = User.builder()
+            User userToRemove = User.builder()
                     .email("remove@example.com")
                     .role(Role.MEMBER)
                     .status(UserStatus.ACTIVE)
@@ -1054,6 +1053,1080 @@ class TeamMemberServiceImplementationTest {
             // Assert
             verify(securityHelper).getUserById(memberIdToUpdate);
             verify(teamMemberMapper).toDto(existingMember, memberUser);
+        }
+    }
+
+    @Nested
+    @DisplayName("LeaveTeam Tests")
+    class LeaveTeamTests {
+
+        private Long teamId;
+        private TeamMember currentUserTeamMember;
+
+        @BeforeEach
+        void setUpLeaveTeamTests() {
+            teamId = activeTeam.getId();
+            currentUserTeamMember = TeamMember.builder()
+                    .teamId(teamId)
+                    .userId(userToAdd.getId())
+                    .role(TeamRole.MEMBER)
+                    .status(TeamMemberStatus.ACTIVE)
+                    .joinedAt(Instant.now())
+                    .build();
+            currentUserTeamMember.setId(20L);
+        }
+
+        @Test
+        @DisplayName("Should successfully leave team when all conditions are met")
+        void shouldLeaveTeamSuccessfully() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(userToAdd);
+            doNothing().when(securityHelper).isUserActive(userToAdd);
+            when(securityHelper.teamExistsAndActiveCheck(teamId)).thenReturn(activeTeam);
+            when(securityHelper.IsMemberInTheTeam(userToAdd.getId(), activeTeam.getId())).thenReturn(true);
+            when(securityHelper.isOwner(userToAdd.getId(), teamId)).thenReturn(false);
+            when(securityHelper.isLastActiveTeamMember(teamId)).thenReturn(false);
+            when(securityHelper.getTeamMember(teamId, userToAdd.getId())).thenReturn(currentUserTeamMember);
+            when(teamMemberRepository.save(any(TeamMember.class))).thenReturn(currentUserTeamMember);
+
+            // Act
+            teamMemberService.leaveTeam(teamId);
+
+            // Assert
+            ArgumentCaptor<TeamMember> memberCaptor = ArgumentCaptor.forClass(TeamMember.class);
+            verify(teamMemberRepository).save(memberCaptor.capture());
+            TeamMember savedMember = memberCaptor.getValue();
+            assertThat(savedMember.getStatus()).isEqualTo(TeamMemberStatus.INACTIVE);
+
+            verify(securityHelper).getCurrentUser();
+            verify(securityHelper).isUserActive(userToAdd);
+            verify(securityHelper).teamExistsAndActiveCheck(teamId);
+            verify(securityHelper).IsMemberInTheTeam(userToAdd.getId(), activeTeam.getId());
+            verify(securityHelper).isLastActiveTeamMember(teamId);
+        }
+
+        @Test
+        @DisplayName("Should throw NullPointerException when teamId is null")
+        void shouldThrowNullPointerExceptionWhenTeamIdIsNull() {
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.leaveTeam(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("The team can not be null");
+
+            verifyNoInteractions(securityHelper);
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw AccessDeniedException when authentication is missing")
+        void shouldThrowAccessDeniedExceptionWhenAuthMissing() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenThrow(new AccessDeniedException("Authentication required"));
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.leaveTeam(teamId))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessage("Authentication required");
+
+            verify(securityHelper).getCurrentUser();
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw UserNotActiveException when current user is not active")
+        void shouldThrowUserNotActiveExceptionWhenCurrentUserNotActive() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(suspendedUser);
+            doThrow(new UserNotActiveException(suspendedUser.getEmail()))
+                    .when(securityHelper).isUserActive(suspendedUser);
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.leaveTeam(teamId))
+                    .isInstanceOf(UserNotActiveException.class);
+
+            verify(securityHelper).getCurrentUser();
+            verify(securityHelper).isUserActive(suspendedUser);
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw TeamNotFoundException when team does not exist")
+        void shouldThrowTeamNotFoundExceptionWhenTeamNotExists() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(userToAdd);
+            doNothing().when(securityHelper).isUserActive(userToAdd);
+            when(securityHelper.teamExistsAndActiveCheck(teamId))
+                    .thenThrow(new TeamNotFoundException(teamId));
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.leaveTeam(teamId))
+                    .isInstanceOf(TeamNotFoundException.class);
+
+            verify(securityHelper).teamExistsAndActiveCheck(teamId);
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw UserNotInTeamException when user is not in team")
+        void shouldThrowUserNotInTeamExceptionWhenUserNotInTeam() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(userToAdd);
+            doNothing().when(securityHelper).isUserActive(userToAdd);
+            when(securityHelper.teamExistsAndActiveCheck(teamId)).thenReturn(activeTeam);
+            when(securityHelper.IsMemberInTheTeam(userToAdd.getId(), activeTeam.getId())).thenReturn(false);
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.leaveTeam(teamId))
+                    .isInstanceOf(UserNotInTeamException.class);
+
+            verify(securityHelper).IsMemberInTheTeam(userToAdd.getId(), activeTeam.getId());
+            verify(teamMemberRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should throw AccessDeniedException when last owner tries to leave")
+        void shouldThrowAccessDeniedExceptionWhenLastOwnerTriesToLeave() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(ownerUser);
+            doNothing().when(securityHelper).isUserActive(ownerUser);
+            when(securityHelper.teamExistsAndActiveCheck(teamId)).thenReturn(activeTeam);
+            when(securityHelper.IsMemberInTheTeam(ownerUser.getId(), activeTeam.getId())).thenReturn(true);
+            when(securityHelper.isOwner(ownerUser.getId(), teamId)).thenReturn(true);
+            when(securityHelper.isLastOwner(teamId)).thenReturn(true);
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.leaveTeam(teamId))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessage("The last owner of the team cannot leave the team. " +
+                            "Please transfer ownership before leaving the team.");
+
+            verify(securityHelper).isOwner(ownerUser.getId(), teamId);
+            verify(securityHelper).isLastOwner(teamId);
+            verify(teamMemberRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should allow owner to leave when not last owner")
+        void shouldAllowOwnerToLeaveWhenNotLastOwner() {
+            // Arrange
+            TeamMember ownerTeamMember = TeamMember.builder()
+                    .teamId(teamId)
+                    .userId(ownerUser.getId())
+                    .role(TeamRole.OWNER)
+                    .status(TeamMemberStatus.ACTIVE)
+                    .build();
+
+            when(securityHelper.getCurrentUser()).thenReturn(ownerUser);
+            doNothing().when(securityHelper).isUserActive(ownerUser);
+            when(securityHelper.teamExistsAndActiveCheck(teamId)).thenReturn(activeTeam);
+            when(securityHelper.IsMemberInTheTeam(ownerUser.getId(), activeTeam.getId())).thenReturn(true);
+            when(securityHelper.isOwner(ownerUser.getId(), teamId)).thenReturn(true);
+            when(securityHelper.isLastOwner(teamId)).thenReturn(false);
+            when(securityHelper.isLastActiveTeamMember(teamId)).thenReturn(false);
+            when(securityHelper.getTeamMember(teamId, ownerUser.getId())).thenReturn(ownerTeamMember);
+            when(teamMemberRepository.save(any(TeamMember.class))).thenReturn(ownerTeamMember);
+
+            // Act
+            teamMemberService.leaveTeam(teamId);
+
+            // Assert
+            verify(securityHelper).isLastOwner(teamId);
+            verify(teamMemberRepository).save(any(TeamMember.class));
+        }
+
+        @Test
+        @DisplayName("Should throw AccessDeniedException when last active member tries to leave")
+        void shouldThrowAccessDeniedExceptionWhenLastActiveMemberTriesToLeave() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(userToAdd);
+            doNothing().when(securityHelper).isUserActive(userToAdd);
+            when(securityHelper.teamExistsAndActiveCheck(teamId)).thenReturn(activeTeam);
+            when(securityHelper.IsMemberInTheTeam(userToAdd.getId(), activeTeam.getId())).thenReturn(true);
+            when(securityHelper.isOwner(userToAdd.getId(), teamId)).thenReturn(false);
+            when(securityHelper.isLastActiveTeamMember(teamId)).thenReturn(true);
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.leaveTeam(teamId))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessage("The last active member of the team cannot leave the team. " +
+                            "Please delete the team or add new members before leaving the team.");
+
+            verify(securityHelper).isLastActiveTeamMember(teamId);
+            verify(teamMemberRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should update status to INACTIVE when leaving")
+        void shouldUpdateStatusToInactiveWhenLeaving() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(userToAdd);
+            doNothing().when(securityHelper).isUserActive(userToAdd);
+            when(securityHelper.teamExistsAndActiveCheck(teamId)).thenReturn(activeTeam);
+            when(securityHelper.IsMemberInTheTeam(userToAdd.getId(), activeTeam.getId())).thenReturn(true);
+            when(securityHelper.isOwner(userToAdd.getId(), teamId)).thenReturn(false);
+            when(securityHelper.isLastActiveTeamMember(teamId)).thenReturn(false);
+            when(securityHelper.getTeamMember(teamId, userToAdd.getId())).thenReturn(currentUserTeamMember);
+            when(teamMemberRepository.save(any(TeamMember.class))).thenReturn(currentUserTeamMember);
+
+            // Act
+            teamMemberService.leaveTeam(teamId);
+
+            // Assert
+            ArgumentCaptor<TeamMember> captor = ArgumentCaptor.forClass(TeamMember.class);
+            verify(teamMemberRepository).save(captor.capture());
+            assertThat(captor.getValue().getStatus()).isEqualTo(TeamMemberStatus.INACTIVE);
+        }
+
+        @Test
+        @DisplayName("Should verify method execution order")
+        void shouldVerifyMethodExecutionOrder() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(userToAdd);
+            doNothing().when(securityHelper).isUserActive(userToAdd);
+            when(securityHelper.teamExistsAndActiveCheck(teamId)).thenReturn(activeTeam);
+            when(securityHelper.IsMemberInTheTeam(userToAdd.getId(), activeTeam.getId())).thenReturn(true);
+            when(securityHelper.isOwner(userToAdd.getId(), teamId)).thenReturn(false);
+            when(securityHelper.isLastActiveTeamMember(teamId)).thenReturn(false);
+            when(securityHelper.getTeamMember(teamId, userToAdd.getId())).thenReturn(currentUserTeamMember);
+            when(teamMemberRepository.save(any(TeamMember.class))).thenReturn(currentUserTeamMember);
+
+            // Act
+            teamMemberService.leaveTeam(teamId);
+
+            // Assert - verify execution order
+            var inOrder = inOrder(securityHelper, teamMemberRepository);
+            inOrder.verify(securityHelper).getCurrentUser();
+            inOrder.verify(securityHelper).isUserActive(userToAdd);
+            inOrder.verify(securityHelper).teamExistsAndActiveCheck(teamId);
+            inOrder.verify(securityHelper).IsMemberInTheTeam(userToAdd.getId(), activeTeam.getId());
+            inOrder.verify(securityHelper).isOwner(userToAdd.getId(), teamId);
+            inOrder.verify(securityHelper).isLastActiveTeamMember(teamId);
+            inOrder.verify(securityHelper).getTeamMember(teamId, userToAdd.getId());
+            inOrder.verify(teamMemberRepository).save(any(TeamMember.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("GetMembersByTeam Tests")
+    class GetMembersByTeamTests {
+
+        private org.springframework.data.domain.Pageable pageable;
+        private TeamMember member1;
+        private TeamMember member2;
+
+        @BeforeEach
+        void setUpGetMembersByTeamTests() {
+            pageable = org.springframework.data.domain.Pageable.unpaged();
+
+            member1 = TeamMember.builder()
+                    .teamId(activeTeam.getId())
+                    .userId(userToAdd.getId())
+                    .role(TeamRole.MEMBER)
+                    .status(TeamMemberStatus.ACTIVE)
+                    .joinedAt(Instant.now())
+                    .build();
+            member1.setId(30L);
+
+            member2 = TeamMember.builder()
+                    .teamId(activeTeam.getId())
+                    .userId(ownerUser.getId())
+                    .role(TeamRole.OWNER)
+                    .status(TeamMemberStatus.ACTIVE)
+                    .joinedAt(Instant.now())
+                    .build();
+            member2.setId(31L);
+        }
+
+        @Test
+        @DisplayName("Should return members page for team owner")
+        void shouldReturnMembersPageForTeamOwner() {
+            // Arrange
+            org.springframework.data.domain.Page<TeamMember> page =
+                    new org.springframework.data.domain.PageImpl<>(java.util.List.of(member1, member2));
+
+            when(securityHelper.getCurrentUser()).thenReturn(ownerUser);
+            doNothing().when(securityHelper).isUserActive(ownerUser);
+            when(securityHelper.teamExistsAndActiveCheck(activeTeam.getId())).thenReturn(activeTeam);
+            when(securityHelper.isTeamOwnerOrAdmin(activeTeam.getId(), ownerUser.getId())).thenReturn(true);
+            when(teamMemberRepository.findByTeamIdAndStatusActive(activeTeam.getId(), pageable)).thenReturn(page);
+            when(securityHelper.getUserById(userToAdd.getId())).thenReturn(userToAdd);
+            when(securityHelper.getUserById(ownerUser.getId())).thenReturn(ownerUser);
+            when(teamMemberMapper.toDto(any(TeamMember.class), any(User.class))).thenReturn(teamMemberResponseDto);
+
+            // Act
+            org.springframework.data.domain.Page<TeamMemberResponseDto> result =
+                    teamMemberService.getMembersByTeam(activeTeam.getId(), pageable);
+
+            // Assert
+            assertThat(result).isNotNull();
+            assertThat(result.getTotalElements()).isEqualTo(2);
+            verify(teamMemberRepository).findByTeamIdAndStatusActive(activeTeam.getId(), pageable);
+            verify(teamMemberMapper, times(2)).toDto(any(TeamMember.class), any(User.class));
+        }
+
+        @Test
+        @DisplayName("Should return members page for team admin")
+        void shouldReturnMembersPageForTeamAdmin() {
+            // Arrange
+            User adminUser = User.builder()
+                    .email("admin@example.com")
+                    .role(Role.MEMBER)
+                    .status(UserStatus.ACTIVE)
+                    .build();
+            adminUser.setId(50L);
+
+            org.springframework.data.domain.Page<TeamMember> page =
+                    new org.springframework.data.domain.PageImpl<>(java.util.List.of(member1));
+
+            when(securityHelper.getCurrentUser()).thenReturn(adminUser);
+            doNothing().when(securityHelper).isUserActive(adminUser);
+            when(securityHelper.teamExistsAndActiveCheck(activeTeam.getId())).thenReturn(activeTeam);
+            when(securityHelper.isTeamOwnerOrAdmin(activeTeam.getId(), adminUser.getId())).thenReturn(true);
+            when(teamMemberRepository.findByTeamIdAndStatusActive(activeTeam.getId(), pageable)).thenReturn(page);
+            when(securityHelper.getUserById(userToAdd.getId())).thenReturn(userToAdd);
+            when(teamMemberMapper.toDto(member1, userToAdd)).thenReturn(teamMemberResponseDto);
+
+            // Act
+            org.springframework.data.domain.Page<TeamMemberResponseDto> result =
+                    teamMemberService.getMembersByTeam(activeTeam.getId(), pageable);
+
+            // Assert
+            assertThat(result).isNotNull();
+            assertThat(result.getTotalElements()).isEqualTo(1);
+            verify(securityHelper).isTeamOwnerOrAdmin(activeTeam.getId(), adminUser.getId());
+        }
+
+        @Test
+        @DisplayName("Should return members page for system admin")
+        void shouldReturnMembersPageForSystemAdmin() {
+            // Arrange
+            User systemAdmin = User.builder()
+                    .email("sysadmin@example.com")
+                    .role(Role.ADMIN)
+                    .status(UserStatus.ACTIVE)
+                    .build();
+            systemAdmin.setId(99L);
+
+            org.springframework.data.domain.Page<TeamMember> page =
+                    new org.springframework.data.domain.PageImpl<>(java.util.List.of(member1));
+
+            when(securityHelper.getCurrentUser()).thenReturn(systemAdmin);
+            doNothing().when(securityHelper).isUserActive(systemAdmin);
+            when(securityHelper.teamExistsAndActiveCheck(activeTeam.getId())).thenReturn(activeTeam);
+            when(teamMemberRepository.findByTeamIdAndStatusActive(activeTeam.getId(), pageable)).thenReturn(page);
+            when(securityHelper.getUserById(userToAdd.getId())).thenReturn(userToAdd);
+            when(teamMemberMapper.toDto(member1, userToAdd)).thenReturn(teamMemberResponseDto);
+
+            // Act
+            org.springframework.data.domain.Page<TeamMemberResponseDto> result =
+                    teamMemberService.getMembersByTeam(activeTeam.getId(), pageable);
+
+            // Assert
+            assertThat(result).isNotNull();
+            verify(securityHelper, never()).isTeamOwnerOrAdmin(any(), any());
+        }
+
+        @Test
+        @DisplayName("Should throw AccessDeniedException when authentication is missing")
+        void shouldThrowAccessDeniedExceptionWhenAuthMissing() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenThrow(new AccessDeniedException("Authentication required"));
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getMembersByTeam(activeTeam.getId(), pageable))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessage("Authentication required");
+
+            verify(securityHelper).getCurrentUser();
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw UserNotActiveException when current user is not active")
+        void shouldThrowUserNotActiveExceptionWhenCurrentUserNotActive() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(suspendedUser);
+            doThrow(new UserNotActiveException(suspendedUser.getEmail()))
+                    .when(securityHelper).isUserActive(suspendedUser);
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getMembersByTeam(activeTeam.getId(), pageable))
+                    .isInstanceOf(UserNotActiveException.class);
+
+            verify(securityHelper).isUserActive(suspendedUser);
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw TeamNotFoundException when team does not exist")
+        void shouldThrowTeamNotFoundExceptionWhenTeamNotExists() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(ownerUser);
+            doNothing().when(securityHelper).isUserActive(ownerUser);
+            when(securityHelper.teamExistsAndActiveCheck(activeTeam.getId()))
+                    .thenThrow(new TeamNotFoundException(activeTeam.getId()));
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getMembersByTeam(activeTeam.getId(), pageable))
+                    .isInstanceOf(TeamNotFoundException.class);
+
+            verify(securityHelper).teamExistsAndActiveCheck(activeTeam.getId());
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw AccessDeniedException when user is neither owner nor admin")
+        void shouldThrowAccessDeniedExceptionWhenNotOwnerOrAdmin() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(userToAdd);
+            doNothing().when(securityHelper).isUserActive(userToAdd);
+            when(securityHelper.teamExistsAndActiveCheck(activeTeam.getId())).thenReturn(activeTeam);
+            when(securityHelper.isTeamOwnerOrAdmin(activeTeam.getId(), userToAdd.getId())).thenReturn(false);
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getMembersByTeam(activeTeam.getId(), pageable))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessage("Only team owner or admins can view members ");
+
+            verify(securityHelper).isTeamOwnerOrAdmin(activeTeam.getId(), userToAdd.getId());
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should return empty page when team has no active members")
+        void shouldReturnEmptyPageWhenNoActiveMembers() {
+            // Arrange
+            org.springframework.data.domain.Page<TeamMember> emptyPage =
+                    new org.springframework.data.domain.PageImpl<>(java.util.List.of());
+
+            when(securityHelper.getCurrentUser()).thenReturn(ownerUser);
+            doNothing().when(securityHelper).isUserActive(ownerUser);
+            when(securityHelper.teamExistsAndActiveCheck(activeTeam.getId())).thenReturn(activeTeam);
+            when(securityHelper.isTeamOwnerOrAdmin(activeTeam.getId(), ownerUser.getId())).thenReturn(true);
+            when(teamMemberRepository.findByTeamIdAndStatusActive(activeTeam.getId(), pageable)).thenReturn(emptyPage);
+
+            // Act
+            org.springframework.data.domain.Page<TeamMemberResponseDto> result =
+                    teamMemberService.getMembersByTeam(activeTeam.getId(), pageable);
+
+            // Assert
+            assertThat(result).isNotNull();
+            assertThat(result.getTotalElements()).isZero();
+            verify(teamMemberMapper, never()).toDto(any(), any());
+        }
+
+        @Test
+        @DisplayName("Should handle paginated results correctly")
+        void shouldHandlePaginatedResultsCorrectly() {
+            // Arrange
+            org.springframework.data.domain.Pageable pagedRequest =
+                    org.springframework.data.domain.PageRequest.of(0, 10);
+            org.springframework.data.domain.Page<TeamMember> page =
+                    new org.springframework.data.domain.PageImpl<>(
+                            java.util.List.of(member1, member2),
+                            pagedRequest,
+                            2
+                    );
+
+            when(securityHelper.getCurrentUser()).thenReturn(ownerUser);
+            doNothing().when(securityHelper).isUserActive(ownerUser);
+            when(securityHelper.teamExistsAndActiveCheck(activeTeam.getId())).thenReturn(activeTeam);
+            when(securityHelper.isTeamOwnerOrAdmin(activeTeam.getId(), ownerUser.getId())).thenReturn(true);
+            when(teamMemberRepository.findByTeamIdAndStatusActive(activeTeam.getId(), pagedRequest)).thenReturn(page);
+            when(securityHelper.getUserById(userToAdd.getId())).thenReturn(userToAdd);
+            when(securityHelper.getUserById(ownerUser.getId())).thenReturn(ownerUser);
+            when(teamMemberMapper.toDto(any(TeamMember.class), any(User.class))).thenReturn(teamMemberResponseDto);
+
+            // Act
+            org.springframework.data.domain.Page<TeamMemberResponseDto> result =
+                    teamMemberService.getMembersByTeam(activeTeam.getId(), pagedRequest);
+
+            // Assert
+            assertThat(result).isNotNull();
+            assertThat(result.getTotalElements()).isEqualTo(2);
+            assertThat(result.getNumber()).isZero();
+            assertThat(result.getSize()).isEqualTo(10);
+        }
+
+
+        @Test
+        @DisplayName("Should verify method execution order")
+        void shouldVerifyMethodExecutionOrder() {
+            // Arrange
+            org.springframework.data.domain.Page<TeamMember> page =
+                    new org.springframework.data.domain.PageImpl<>(java.util.List.of(member1));
+
+            when(securityHelper.getCurrentUser()).thenReturn(ownerUser);
+            doNothing().when(securityHelper).isUserActive(ownerUser);
+            when(securityHelper.teamExistsAndActiveCheck(activeTeam.getId())).thenReturn(activeTeam);
+            when(securityHelper.isTeamOwnerOrAdmin(activeTeam.getId(), ownerUser.getId())).thenReturn(true);
+            when(teamMemberRepository.findByTeamIdAndStatusActive(activeTeam.getId(), pageable)).thenReturn(page);
+            when(securityHelper.getUserById(userToAdd.getId())).thenReturn(userToAdd);
+            when(teamMemberMapper.toDto(member1, userToAdd)).thenReturn(teamMemberResponseDto);
+
+            // Act
+            teamMemberService.getMembersByTeam(activeTeam.getId(), pageable);
+
+            // Assert - verify execution order
+            var inOrder = inOrder(securityHelper, teamMemberRepository);
+            inOrder.verify(securityHelper).getCurrentUser();
+            inOrder.verify(securityHelper).isUserActive(ownerUser);
+            inOrder.verify(securityHelper).teamExistsAndActiveCheck(activeTeam.getId());
+            inOrder.verify(teamMemberRepository).findByTeamIdAndStatusActive(activeTeam.getId(), pageable);
+        }
+    }
+
+    @Nested
+    @DisplayName("GetMember Tests")
+    class GetMemberTests {
+
+        private Long teamId;
+        private Long memberUserId;
+
+        @BeforeEach
+        void setUpGetMemberTests() {
+            teamId = activeTeam.getId();
+            memberUserId = userToAdd.getId();
+        }
+
+        @Test
+        @DisplayName("Should return member details for team owner")
+        void shouldReturnMemberDetailsForTeamOwner() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(ownerUser);
+            doNothing().when(securityHelper).isUserActive(ownerUser);
+            when(securityHelper.teamExistsAndActiveCheck(teamId)).thenReturn(activeTeam);
+            when(securityHelper.isTeamOwnerOrAdmin(teamId, ownerUser.getId())).thenReturn(true);
+            when(teamMemberRepository.findByTeamIdAndUserId(teamId, memberUserId))
+                    .thenReturn(Optional.of(teamMember));
+            when(securityHelper.getUserById(memberUserId)).thenReturn(userToAdd);
+            when(teamMemberMapper.toDto(teamMember, userToAdd)).thenReturn(teamMemberResponseDto);
+
+            // Act
+            TeamMemberResponseDto result = teamMemberService.getMember(teamId, memberUserId);
+
+            // Assert
+            assertThat(result).isNotNull();
+            assertThat(result.teamId()).isEqualTo(teamId);
+            assertThat(result.userId()).isEqualTo(memberUserId);
+            verify(teamMemberMapper).toDto(teamMember, userToAdd);
+        }
+
+        @Test
+        @DisplayName("Should return member details for team admin")
+        void shouldReturnMemberDetailsForTeamAdmin() {
+            // Arrange
+            User adminUser = User.builder()
+                    .email("admin@example.com")
+                    .role(Role.MEMBER)
+                    .status(UserStatus.ACTIVE)
+                    .build();
+            adminUser.setId(50L);
+
+            when(securityHelper.getCurrentUser()).thenReturn(adminUser);
+            doNothing().when(securityHelper).isUserActive(adminUser);
+            when(securityHelper.teamExistsAndActiveCheck(teamId)).thenReturn(activeTeam);
+            when(securityHelper.isTeamOwnerOrAdmin(teamId, adminUser.getId())).thenReturn(true);
+            when(teamMemberRepository.findByTeamIdAndUserId(teamId, memberUserId))
+                    .thenReturn(Optional.of(teamMember));
+            when(securityHelper.getUserById(memberUserId)).thenReturn(userToAdd);
+            when(teamMemberMapper.toDto(teamMember, userToAdd)).thenReturn(teamMemberResponseDto);
+
+            // Act
+            TeamMemberResponseDto result = teamMemberService.getMember(teamId, memberUserId);
+
+            // Assert
+            assertThat(result).isNotNull();
+            verify(securityHelper).isTeamOwnerOrAdmin(teamId, adminUser.getId());
+        }
+
+        @Test
+        @DisplayName("Should return member details for system admin")
+        void shouldReturnMemberDetailsForSystemAdmin() {
+            // Arrange
+            User systemAdmin = User.builder()
+                    .email("sysadmin@example.com")
+                    .role(Role.ADMIN)
+                    .status(UserStatus.ACTIVE)
+                    .build();
+            systemAdmin.setId(99L);
+
+            when(securityHelper.getCurrentUser()).thenReturn(systemAdmin);
+            doNothing().when(securityHelper).isUserActive(systemAdmin);
+            when(securityHelper.teamExistsAndActiveCheck(teamId)).thenReturn(activeTeam);
+            when(teamMemberRepository.findByTeamIdAndUserId(teamId, memberUserId))
+                    .thenReturn(Optional.of(teamMember));
+            when(securityHelper.getUserById(memberUserId)).thenReturn(userToAdd);
+            when(teamMemberMapper.toDto(teamMember, userToAdd)).thenReturn(teamMemberResponseDto);
+
+            // Act
+            TeamMemberResponseDto result = teamMemberService.getMember(teamId, memberUserId);
+
+            // Assert
+            assertThat(result).isNotNull();
+            verify(securityHelper, never()).isTeamOwnerOrAdmin(any(), any());
+            verify(securityHelper, never()).isSelfOperation(any(), any());
+        }
+
+        @Test
+        @DisplayName("Should return own member details for self operation")
+        void shouldReturnOwnMemberDetailsForSelfOperation() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(userToAdd);
+            doNothing().when(securityHelper).isUserActive(userToAdd);
+            when(securityHelper.teamExistsAndActiveCheck(teamId)).thenReturn(activeTeam);
+            when(securityHelper.isTeamOwnerOrAdmin(teamId, userToAdd.getId())).thenReturn(false);
+            when(securityHelper.isSelfOperation(userToAdd.getId(), memberUserId)).thenReturn(true);
+            when(teamMemberRepository.findByTeamIdAndUserId(teamId, memberUserId))
+                    .thenReturn(Optional.of(teamMember));
+            when(securityHelper.getUserById(memberUserId)).thenReturn(userToAdd);
+            when(teamMemberMapper.toDto(teamMember, userToAdd)).thenReturn(teamMemberResponseDto);
+
+            // Act
+            TeamMemberResponseDto result = teamMemberService.getMember(teamId, memberUserId);
+
+            // Assert
+            assertThat(result).isNotNull();
+            verify(securityHelper).isSelfOperation(userToAdd.getId(), memberUserId);
+        }
+
+        @Test
+        @DisplayName("Should throw NullPointerException when userId is null")
+        void shouldThrowNullPointerExceptionWhenUserIdIsNull() {
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getMember(teamId, null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("The user can not be null");
+
+            verifyNoInteractions(securityHelper);
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw NullPointerException when teamId is null")
+        void shouldThrowNullPointerExceptionWhenTeamIdIsNull() {
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getMember(null, memberUserId))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("The team can not be null");
+
+            verifyNoInteractions(securityHelper);
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw AccessDeniedException when authentication is missing")
+        void shouldThrowAccessDeniedExceptionWhenAuthMissing() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenThrow(new AccessDeniedException("Authentication required"));
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getMember(teamId, memberUserId))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessage("Authentication required");
+
+            verify(securityHelper).getCurrentUser();
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw UserNotActiveException when current user is not active")
+        void shouldThrowUserNotActiveExceptionWhenCurrentUserNotActive() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(suspendedUser);
+            doThrow(new UserNotActiveException(suspendedUser.getEmail()))
+                    .when(securityHelper).isUserActive(suspendedUser);
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getMember(teamId, memberUserId))
+                    .isInstanceOf(UserNotActiveException.class);
+
+            verify(securityHelper).isUserActive(suspendedUser);
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw TeamNotFoundException when team does not exist")
+        void shouldThrowTeamNotFoundExceptionWhenTeamNotExists() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(ownerUser);
+            doNothing().when(securityHelper).isUserActive(ownerUser);
+            when(securityHelper.teamExistsAndActiveCheck(teamId))
+                    .thenThrow(new TeamNotFoundException(teamId));
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getMember(teamId, memberUserId))
+                    .isInstanceOf(TeamNotFoundException.class);
+
+            verify(securityHelper).teamExistsAndActiveCheck(teamId);
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw AccessDeniedException when user is not owner, admin, or self")
+        void shouldThrowAccessDeniedExceptionWhenNotAuthorized() {
+            // Arrange
+            Long otherUserId = 999L;
+            when(securityHelper.getCurrentUser()).thenReturn(userToAdd);
+            doNothing().when(securityHelper).isUserActive(userToAdd);
+            when(securityHelper.teamExistsAndActiveCheck(teamId)).thenReturn(activeTeam);
+            when(securityHelper.isTeamOwnerOrAdmin(teamId, userToAdd.getId())).thenReturn(false);
+            when(securityHelper.isSelfOperation(userToAdd.getId(), otherUserId)).thenReturn(false);
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getMember(teamId, otherUserId))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessage("Only team owner , admins or the user themselves can view member details ");
+
+            verify(securityHelper).isSelfOperation(userToAdd.getId(), otherUserId);
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw UserNotInTeamException when member not found in team")
+        void shouldThrowUserNotInTeamExceptionWhenMemberNotFound() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(ownerUser);
+            doNothing().when(securityHelper).isUserActive(ownerUser);
+            when(securityHelper.teamExistsAndActiveCheck(teamId)).thenReturn(activeTeam);
+            when(securityHelper.isTeamOwnerOrAdmin(teamId, ownerUser.getId())).thenReturn(true);
+            when(teamMemberRepository.findByTeamIdAndUserId(teamId, memberUserId))
+                    .thenReturn(Optional.empty());
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getMember(teamId, memberUserId))
+                    .isInstanceOf(UserNotInTeamException.class);
+
+            verify(teamMemberRepository).findByTeamIdAndUserId(teamId, memberUserId);
+            verify(teamMemberMapper, never()).toDto(any(), any());
+        }
+
+        @Test
+        @DisplayName("Should verify method execution order")
+        void shouldVerifyMethodExecutionOrder() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(ownerUser);
+            doNothing().when(securityHelper).isUserActive(ownerUser);
+            when(securityHelper.teamExistsAndActiveCheck(teamId)).thenReturn(activeTeam);
+            when(securityHelper.isTeamOwnerOrAdmin(teamId, ownerUser.getId())).thenReturn(true);
+            when(teamMemberRepository.findByTeamIdAndUserId(teamId, memberUserId))
+                    .thenReturn(Optional.of(teamMember));
+            when(securityHelper.getUserById(memberUserId)).thenReturn(userToAdd);
+            when(teamMemberMapper.toDto(teamMember, userToAdd)).thenReturn(teamMemberResponseDto);
+
+            // Act
+            teamMemberService.getMember(teamId, memberUserId);
+
+            // Assert - verify execution order
+            var inOrder = inOrder(securityHelper, teamMemberRepository, teamMemberMapper);
+            inOrder.verify(securityHelper).getCurrentUser();
+            inOrder.verify(securityHelper).isUserActive(ownerUser);
+            inOrder.verify(securityHelper).teamExistsAndActiveCheck(teamId);
+            inOrder.verify(teamMemberRepository).findByTeamIdAndUserId(teamId, memberUserId);
+            inOrder.verify(securityHelper).getUserById(memberUserId);
+            inOrder.verify(teamMemberMapper).toDto(teamMember, userToAdd);
+        }
+    }
+
+    @Nested
+    @DisplayName("GetTotalMembersCountForAdmin Tests")
+    class GetTotalMembersCountForAdminTests {
+
+        private Long teamId;
+        private User adminUser;
+
+        @BeforeEach
+        void setUpGetTotalMembersCountTests() {
+            teamId = activeTeam.getId();
+            adminUser = User.builder()
+                    .email("admin@example.com")
+                    .role(Role.ADMIN)
+                    .status(UserStatus.ACTIVE)
+                    .build();
+            adminUser.setId(99L);
+        }
+
+        @Test
+        @DisplayName("Should return total members count for system admin")
+        void shouldReturnTotalMembersCountForSystemAdmin() {
+            // Arrange
+            Long expectedCount = 42L;
+            when(securityHelper.getCurrentUser()).thenReturn(adminUser);
+            doNothing().when(securityHelper).isUserActive(adminUser);
+            doNothing().when(securityHelper).teamExists(teamId);
+            when(teamMemberRepository.countByTeamId(teamId)).thenReturn(expectedCount);
+
+            // Act
+            Long result = teamMemberService.getTotalMembersCountForAdmin(teamId);
+
+            // Assert
+            assertThat(result).isEqualTo(expectedCount);
+            verify(securityHelper).teamExists(teamId);
+            verify(teamMemberRepository).countByTeamId(teamId);
+        }
+
+        @Test
+        @DisplayName("Should return zero when team has no members")
+        void shouldReturnZeroWhenTeamHasNoMembers() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(adminUser);
+            doNothing().when(securityHelper).isUserActive(adminUser);
+            doNothing().when(securityHelper).teamExists(teamId);
+            when(teamMemberRepository.countByTeamId(teamId)).thenReturn(0L);
+
+            // Act
+            Long result = teamMemberService.getTotalMembersCountForAdmin(teamId);
+
+            // Assert
+            assertThat(result).isZero();
+        }
+
+        @Test
+        @DisplayName("Should throw NullPointerException when teamId is null")
+        void shouldThrowNullPointerExceptionWhenTeamIdIsNull() {
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getTotalMembersCountForAdmin(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("Team ID cannot be null");
+
+            verifyNoInteractions(securityHelper);
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw AccessDeniedException when authentication is missing")
+        void shouldThrowAccessDeniedExceptionWhenAuthMissing() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenThrow(new AccessDeniedException("Authentication required"));
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getTotalMembersCountForAdmin(teamId))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessage("Authentication required");
+
+            verify(securityHelper).getCurrentUser();
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw UserNotActiveException when current user is not active")
+        void shouldThrowUserNotActiveExceptionWhenCurrentUserNotActive() {
+            // Arrange
+            adminUser.setStatus(UserStatus.SUSPENDED);
+            when(securityHelper.getCurrentUser()).thenReturn(adminUser);
+            doThrow(new UserNotActiveException(adminUser.getEmail()))
+                    .when(securityHelper).isUserActive(adminUser);
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getTotalMembersCountForAdmin(teamId))
+                    .isInstanceOf(UserNotActiveException.class);
+
+            verify(securityHelper).isUserActive(adminUser);
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw AccessDeniedException when user is not system admin")
+        void shouldThrowAccessDeniedExceptionWhenNotSystemAdmin() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(ownerUser);
+            doNothing().when(securityHelper).isUserActive(ownerUser);
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getTotalMembersCountForAdmin(teamId))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessage("Only system admins can access member statistics");
+
+            verify(securityHelper).getCurrentUser();
+            verify(securityHelper).isUserActive(ownerUser);
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw TeamNotFoundException when team does not exist")
+        void shouldThrowTeamNotFoundExceptionWhenTeamNotExists() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(adminUser);
+            doNothing().when(securityHelper).isUserActive(adminUser);
+            doThrow(new TeamNotFoundException(teamId)).when(securityHelper).teamExists(teamId);
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getTotalMembersCountForAdmin(teamId))
+                    .isInstanceOf(TeamNotFoundException.class);
+
+            verify(securityHelper).teamExists(teamId);
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should verify method execution order")
+        void shouldVerifyMethodExecutionOrder() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(adminUser);
+            doNothing().when(securityHelper).isUserActive(adminUser);
+            doNothing().when(securityHelper).teamExists(teamId);
+            when(teamMemberRepository.countByTeamId(teamId)).thenReturn(10L);
+
+            // Act
+            teamMemberService.getTotalMembersCountForAdmin(teamId);
+
+            // Assert - verify execution order
+            var inOrder = inOrder(securityHelper, teamMemberRepository);
+            inOrder.verify(securityHelper).getCurrentUser();
+            inOrder.verify(securityHelper).isUserActive(adminUser);
+            inOrder.verify(securityHelper).teamExists(teamId);
+            inOrder.verify(teamMemberRepository).countByTeamId(teamId);
+        }
+    }
+
+    @Nested
+    @DisplayName("GetActiveMembersCount Tests")
+    class GetActiveMembersCountTests {
+
+        private Long teamId;
+        private User adminUser;
+
+        @BeforeEach
+        void setUpGetActiveMembersCountTests() {
+            teamId = activeTeam.getId();
+            adminUser = User.builder()
+                    .email("admin@example.com")
+                    .role(Role.ADMIN)
+                    .status(UserStatus.ACTIVE)
+                    .build();
+            adminUser.setId(99L);
+        }
+
+        @Test
+        @DisplayName("Should return active members count for system admin")
+        void shouldReturnActiveMembersCountForSystemAdmin() {
+            // Arrange
+            Long expectedCount = 7L;
+            when(securityHelper.getCurrentUser()).thenReturn(adminUser);
+            doNothing().when(securityHelper).isUserActive(adminUser);
+            doNothing().when(securityHelper).teamExists(teamId);
+            when(teamMemberRepository.countByTeamIdAndStatusActive(teamId)).thenReturn(expectedCount);
+
+            // Act
+            Long result = teamMemberService.getActiveMembersCount(teamId);
+
+            // Assert
+            assertThat(result).isEqualTo(expectedCount);
+            verify(securityHelper).teamExists(teamId);
+            verify(teamMemberRepository).countByTeamIdAndStatusActive(teamId);
+        }
+
+        @Test
+        @DisplayName("Should return zero when team has no active members")
+        void shouldReturnZeroWhenTeamHasNoActiveMembers() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(adminUser);
+            doNothing().when(securityHelper).isUserActive(adminUser);
+            doNothing().when(securityHelper).teamExists(teamId);
+            when(teamMemberRepository.countByTeamIdAndStatusActive(teamId)).thenReturn(0L);
+
+            // Act
+            Long result = teamMemberService.getActiveMembersCount(teamId);
+
+            // Assert
+            assertThat(result).isZero();
+        }
+
+        @Test
+        @DisplayName("Should throw NullPointerException when teamId is null")
+        void shouldThrowNullPointerExceptionWhenTeamIdIsNull() {
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getActiveMembersCount(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("Team ID cannot be null");
+
+            verifyNoInteractions(securityHelper);
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw AccessDeniedException when authentication is missing")
+        void shouldThrowAccessDeniedExceptionWhenAuthMissing() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenThrow(new AccessDeniedException("Authentication required"));
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getActiveMembersCount(teamId))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessage("Authentication required");
+
+            verify(securityHelper).getCurrentUser();
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw UserNotActiveException when current user is not active")
+        void shouldThrowUserNotActiveExceptionWhenCurrentUserNotActive() {
+            // Arrange
+            adminUser.setStatus(UserStatus.SUSPENDED);
+            when(securityHelper.getCurrentUser()).thenReturn(adminUser);
+            doThrow(new UserNotActiveException(adminUser.getEmail()))
+                    .when(securityHelper).isUserActive(adminUser);
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getActiveMembersCount(teamId))
+                    .isInstanceOf(UserNotActiveException.class);
+
+            verify(securityHelper).isUserActive(adminUser);
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw AccessDeniedException when user is not system admin")
+        void shouldThrowAccessDeniedExceptionWhenNotSystemAdmin() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(ownerUser);
+            doNothing().when(securityHelper).isUserActive(ownerUser);
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getActiveMembersCount(teamId))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessage("Only system admins can access member statistics");
+
+            verify(securityHelper).getCurrentUser();
+            verify(securityHelper).isUserActive(ownerUser);
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should throw TeamNotFoundException when team does not exist")
+        void shouldThrowTeamNotFoundExceptionWhenTeamNotExists() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(adminUser);
+            doNothing().when(securityHelper).isUserActive(adminUser);
+            doThrow(new TeamNotFoundException(teamId)).when(securityHelper).teamExists(teamId);
+
+            // Act & Assert
+            assertThatThrownBy(() -> teamMemberService.getActiveMembersCount(teamId))
+                    .isInstanceOf(TeamNotFoundException.class);
+
+            verify(securityHelper).teamExists(teamId);
+            verifyNoInteractions(teamMemberRepository);
+        }
+
+        @Test
+        @DisplayName("Should verify method execution order")
+        void shouldVerifyMethodExecutionOrder() {
+            // Arrange
+            when(securityHelper.getCurrentUser()).thenReturn(adminUser);
+            doNothing().when(securityHelper).isUserActive(adminUser);
+            doNothing().when(securityHelper).teamExists(teamId);
+            when(teamMemberRepository.countByTeamIdAndStatusActive(teamId)).thenReturn(5L);
+
+            // Act
+            teamMemberService.getActiveMembersCount(teamId);
+
+            // Assert - verify execution order
+            var inOrder = inOrder(securityHelper, teamMemberRepository);
+            inOrder.verify(securityHelper).getCurrentUser();
+            inOrder.verify(securityHelper).isUserActive(adminUser);
+            inOrder.verify(securityHelper).teamExists(teamId);
+            inOrder.verify(teamMemberRepository).countByTeamIdAndStatusActive(teamId);
         }
     }
 }
