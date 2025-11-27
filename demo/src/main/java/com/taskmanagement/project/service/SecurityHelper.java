@@ -159,10 +159,11 @@ public class SecurityHelper {
 
     }
 
-    protected void teamExists(Long teamId) {
+    protected Team teamExists(Long teamId) {
 
-        if ( ! teamRepository.existsById ( teamId ) )
-            throw new TeamNotFoundException ( teamId );
+        return teamRepository.findById ( teamId )
+                .orElseThrow ( () -> new TeamNotFoundException ( teamId ) );
+
     }
 
     protected void validateProjectNameNotExists( String projectName , Long teamId ) {
@@ -237,14 +238,26 @@ public class SecurityHelper {
         switch (newStatus) {
 
             case PLANNED:
-
                 if (oldStatus != ProjectStatus.DELETED &&
                         oldStatus != ProjectStatus.ARCHIVED) {
                     throw new InvalidProjectStatusException ( oldStatus , newStatus );
                 }
                 break;
 
+            case ACTIVE:
+                if (oldStatus != ProjectStatus.PLANNED &&
+                        oldStatus != ProjectStatus.ON_HOLD) {
+                    throw new InvalidProjectStatusException ( oldStatus , newStatus );
+                }
+                break;
 
+            case ARCHIVED:
+
+                if (oldStatus != ProjectStatus.COMPLETED &&
+                        oldStatus != ProjectStatus.ON_HOLD) {
+                    throw new InvalidProjectStatusException ( oldStatus , newStatus );
+                }
+                break;
 
         }
 

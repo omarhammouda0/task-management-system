@@ -6,7 +6,6 @@ import com.taskmanagement.project.dto.UpdateProjectDto;
 import com.taskmanagement.project.enums.ProjectStatus;
 import com.taskmanagement.project.mapper.ProjectMapper;
 import com.taskmanagement.project.repository.ProjectRepository;
-import com.taskmanagement.user.enums.Role;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -96,12 +95,64 @@ public class ProjectServiceImplementation implements ProjectService {
     }
 
     @Override
+    @Transactional
     public ProjectResponseDto activateProject(Long projectId) {
-        return null;
+
+        Objects.requireNonNull(projectId, "The project id must not be null");
+
+        var currentUser = securityHelper.getCurrentUser ( );
+        var project = securityHelper.projectExistsCheck ( projectId );
+        var team = securityHelper.teamExistsAndActiveCheck ( project.getTeamId () );
+        var oldStatus = project.getStatus ();
+        var newStatus = ProjectStatus.ACTIVE;
+
+        securityHelper.isUserActive ( currentUser );
+        securityHelper.isSystemAdmin ( currentUser );
+        securityHelper.validateStatusValidation ( project.getStatus () , newStatus );
+        securityHelper.validateProjectNameNotExistsForUpdate ( project.getName () , team.getId () , projectId );
+        securityHelper.dateValidation ( project.getStartDate () , project.getEndDate () );
+
+        project.setStatus ( newStatus);
+        project.setUpdatedBy (   currentUser.getId () );
+
+        var activatedProject = projectRepository.save ( project );
+
+        log.info("Project '{}' (ID: {}) activated by admin {} (ID: {}) from {} to ACTIVE",
+                activatedProject.getName(),
+                activatedProject.getId(),
+                currentUser.getEmail(),
+                currentUser.getId(),
+                oldStatus);
+
+        return projectMapper.toDto ( activatedProject );
     }
 
     @Override
+    @Transactional
     public void archiveProject(Long projectId) {
+
+        Objects.requireNonNull ( projectId, "The project id must not be null" );
+
+        var currentUser = securityHelper.getCurrentUser ( );
+        var project = securityHelper.projectExistsCheck ( projectId );
+        var team = securityHelper.teamExistsAndActiveCheck ( project.getTeamId () );
+        var oldStatus = project.getStatus ();
+        var newStatus = ProjectStatus.ARCHIVED;
+
+        securityHelper.isUserActive ( currentUser );
+        securityHelper.isSystemAdmin ( currentUser );
+        securityHelper.validateStatusValidation ( project.getStatus () , newStatus );
+
+        project.setStatus ( newStatus);
+        project.setUpdatedBy (   currentUser.getId () );
+        var archivedProject = projectRepository.save ( project );
+
+        log.info("Project '{}' (ID: {}) archived by admin {} (ID: {}) from {} to ARCHIVED",
+                archivedProject.getName(),
+                archivedProject.getId(),
+                currentUser.getEmail(),
+                currentUser.getId(),
+                oldStatus);
 
     }
 

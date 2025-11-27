@@ -2,6 +2,9 @@ package com.taskmanagement.common.exception.ErrorCode;
 
 
 public enum ErrorCode {
+
+
+    INVALID_REQUEST,
     EMAIL_ALREADY_REGISTERED,
     USER_NOT_FOUND,
     USER_ALREADY_ACTIVE,
@@ -35,7 +38,11 @@ public enum ErrorCode {
     CANNOT_MODIFY_ARCHIVED_PROJECT,
     TASK_NOT_FOUND,
     INVALID_TASK_STATUS,
-    INVALID_TASK_PRIORITY
+    INVALID_TASK_PRIORITY,
+    CANNOT_MODIFY_COMPLETED_TASK,
+    CANNOT_ARCHIVE_PROJECT_WITH_ACTIVE_TASKS,
+
+
     ;
 
 }

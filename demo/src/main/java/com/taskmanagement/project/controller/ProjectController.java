@@ -38,4 +38,25 @@ public class ProjectController {
 
     }
 
+    @PostMapping ("/{projectId}/activate" )
+    @PreAuthorize ( "hasRole('ADMIN')" )
+
+    public ResponseEntity <ProjectResponseDto> activateProject
+            ( @PathVariable Long projectId ){
+
+        return ResponseEntity.status( HttpStatus.OK).body ( projectService.activateProject( projectId ) );
+
+    }
+
+    @PostMapping("/{projectId}/archive" )
+    @PreAuthorize ( "hasRole('ADMIN')" )
+
+    public ResponseEntity <Void> archiveProject
+            ( @PathVariable Long projectId ){
+
+        projectService.archiveProject( projectId );
+        return ResponseEntity.status( HttpStatus.NO_CONTENT).build ( );
+
+    }
+
 }
