@@ -103,6 +103,7 @@ public class TeamMemberServiceImplementation implements TeamMemberService {
         securityHelper.isUserActive(currentUser);
 
         var team = securityHelper.teamExistsAndActiveCheck ( dto.teamId ( ) );
+
         if (! securityHelper.isOwner ( currentUser.getId () , team.getId () ) )
             throw new  AccessDeniedException ( "Only team owner can update member roles " );
 

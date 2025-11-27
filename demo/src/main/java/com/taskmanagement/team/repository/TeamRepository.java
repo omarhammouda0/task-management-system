@@ -35,5 +35,9 @@ public interface TeamRepository extends JpaRepository<Team, Long> {
     @Query ("SELECT t FROM Team t WHERE t.ownerId = :ownerId AND t.status = 'ACTIVE'")
     Page <Team> findByOwnerIdAndStatusActive ( @Param ( "ownerId" ) Long ownerId ,  Pageable pageable);
 
+    @Query ("SELECT CASE WHEN COUNT(t) > 0 THEN true ELSE false END " +
+            "FROM Team t WHERE t.id = :teamId AND t.status = 'ACTIVE' ")
+
+    boolean existsByIdAndStatusActive (@Param ( "teamId" ) Long teamId );
 
 }

@@ -17,7 +17,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 @RequiredArgsConstructor
-@Component
+@Component ("teamSecurityHelper")
 
 public class SecurityHelper {
 
