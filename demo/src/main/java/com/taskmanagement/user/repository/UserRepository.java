@@ -31,4 +31,8 @@ public interface UserRepository extends JpaRepository <User, Long> {
             " AND u.id <> :userId")
     boolean existsOtherAdmins(@Param("userId") Long userId);
 
+    @Query ("SELECT CASE WHEN COUNT(u) > 0 THEN true ELSE false END " +
+            "FROM User u WHERE u.id = :userId AND u.role = com.taskmanagement.user.enums.Role.ADMIN")
+
+    boolean existsByIdAndRoleAdmin(@Param ( "userId" ) Long id);
 }

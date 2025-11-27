@@ -141,7 +141,7 @@ spring:
 # ==========================================
 jwt:
   secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B59703373367639792442264529482B4D6251655468576D5A7134743777217A25432A
-  access-token-expiration: 900000
+  access-token-expiration: 900000000000000
   refresh-token-expiration: 604800000
   issuer: task-management-system
 

@@ -10,7 +10,8 @@ public class InvalidPasswordException extends StatuesException {
     }
 
     public InvalidPasswordException() {
-        super(ErrorCode.INVALID_PASSWORD.name(), "The provided password is incorrect");
+        super(ErrorCode.INVALID_PASSWORD.name(),
+                "The provided password is incorrect");
     }
 }
 
