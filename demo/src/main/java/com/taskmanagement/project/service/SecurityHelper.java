@@ -11,16 +11,18 @@ import com.taskmanagement.team.enums.TeamStatus;
 import com.taskmanagement.team.repository.TeamMemberRepository;
 import com.taskmanagement.team.repository.TeamRepository;
 import com.taskmanagement.user.entity.User;
+import com.taskmanagement.user.enums.Role;
 import com.taskmanagement.user.enums.UserStatus;
 import com.taskmanagement.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
-import java.time.LocalDate;
+import java.util.List;
 
 @RequiredArgsConstructor
 @Component("projectSecurityHelper")
@@ -52,6 +54,11 @@ public class SecurityHelper {
         if (currentUser.getStatus ( ) != UserStatus.ACTIVE) {
             throw new UserNotActiveException ( currentUser.getEmail ( ) );
         }
+    }
+
+    protected boolean systemAdminCheck (User currentUser) {
+
+        return currentUser.getRole ( ) == Role.ADMIN;
     }
 
     protected void isSystemAdmin (User currentUser) {
@@ -97,9 +104,12 @@ public class SecurityHelper {
 
     }
 
-    protected boolean isMemberInTeam(Long teamId , User userToAdd) {
+    protected void isMemberInTeamOrSystemAdmin(Long teamId , User userToAdd) {
 
-        return teamMemberRepository.existsByTeamIdAndUserId ( teamId , userToAdd.getId ( ) );
+        if (userToAdd.getRole ( ) != Role.ADMIN &&
+                !teamMemberRepository.existsByTeamIdAndUserId ( teamId , userToAdd.getId ( ) ))
+
+            throw new UserNotInTeamException ( userToAdd.getId ( ) , teamId );
     }
 
     protected void isUserSystemAdminOrTeamOwner(Long userId , Long teamId) {
@@ -152,12 +162,12 @@ public class SecurityHelper {
 
     }
 
-    protected boolean isTeamOwnerOrAdmin(Long teamId , Long userId) {
-
-        return teamMemberRepository.existsByTeamIdAndUserIdAndRoleIn ( teamId , userId ,
-                java.util.Arrays.asList ( TeamRole.OWNER , TeamRole.ADMIN ) );
-
-    }
+//    protected boolean isTeamOwnerOrAdmin(Long teamId , Long userId) {
+//
+//        return teamMemberRepository.existsByTeamIdAndUserIdAndRoleIn ( teamId , userId ,
+//                java.util.Arrays.asList ( TeamRole.OWNER , TeamRole.ADMIN ) );
+//
+//    }
 
     protected Team teamExists(Long teamId) {
 
@@ -269,6 +279,43 @@ public class SecurityHelper {
             throw new TeamNotFoundException ( teamId );
 
     }
+
+    protected void projectActiveCheck(Long projectId) {
+
+        if (! projectRepository.existsByIdAndStatusActive ( projectId ) )
+            throw new ProjectNotFoundException ( projectId );
+
+    }
+
+    protected Project projectRetrievableCheckUponRole (User currentUser , Long projectId ) {
+
+        if (systemAdminCheck ( currentUser ))
+            return projectExistsCheck ( projectId );
+
+        else
+            return projectExistsAndActiveCheck ( projectId );
+
+    }
+
+    protected Team teamRetrievableCheckUponRole (User currentUser , Long teamId ) {
+
+        if (systemAdminCheck ( currentUser ))
+            return teamExists ( teamId );
+
+        else
+            return teamExistsAndActiveCheck ( teamId );
+
+    }
+
+    protected void isSystemAdminOrTeamOwner ( User currentUser , Long ownerId) {
+
+        if (! systemAdminCheck(currentUser) && ! isSelfOperation ( currentUser.getId () , ownerId ) )
+            throw new AccessDeniedException ( "Only System admin or the team owner can do this process" );
+    }
+
+
+
+
 }
 
 

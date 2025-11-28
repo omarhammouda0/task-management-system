@@ -1,11 +1,13 @@
 package com.taskmanagement.project.service;
 
+import com.taskmanagement.common.exception.types.Exceptions.AccessDeniedException;
 import com.taskmanagement.project.dto.CreateProjectDto;
 import com.taskmanagement.project.dto.ProjectResponseDto;
 import com.taskmanagement.project.dto.UpdateProjectDto;
 import com.taskmanagement.project.enums.ProjectStatus;
 import com.taskmanagement.project.mapper.ProjectMapper;
 import com.taskmanagement.project.repository.ProjectRepository;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -32,25 +34,25 @@ public class ProjectServiceImplementation implements ProjectService {
 
     public ProjectResponseDto createProject(CreateProjectDto requestDto) {
 
-        Objects.requireNonNull(requestDto , "The project creation data must not be null");
+        Objects.requireNonNull ( requestDto , "The project creation data must not be null" );
 
-        var currentUser = securityHelper.getCurrentUser();
-        var team = securityHelper.teamExistsAndActiveCheck(requestDto.teamId ());
-        String projectName = requestDto.name().trim();
+        var currentUser = securityHelper.getCurrentUser ( );
+        var team = securityHelper.teamExistsAndActiveCheck ( requestDto.teamId ( ) );
+        String projectName = requestDto.name ( ).trim ( );
 
-        securityHelper.isUserActive(currentUser);
-        securityHelper.isOwner(currentUser.getId() , team.getId());
-        securityHelper.validateProjectNameNotExists ( projectName, team.getId() );
-        securityHelper.dateValidation ( requestDto.startDate () , requestDto.endDate () );
+        securityHelper.isUserActive ( currentUser );
+        securityHelper.isOwner ( currentUser.getId ( ) , team.getId ( ) );
+        securityHelper.validateProjectNameNotExists ( projectName , team.getId ( ) );
+        securityHelper.dateValidation ( requestDto.startDate ( ) , requestDto.endDate ( ) );
 
-        var status = securityHelper.statusValidation ( requestDto.status() );
+        var status = securityHelper.statusValidation ( requestDto.status ( ) );
 
         var toSaveProject = projectMapper.toEntity ( requestDto );
 
         toSaveProject.setStatus ( status );
-        toSaveProject.setCreatedBy (  currentUser.getId() );
+        toSaveProject.setCreatedBy ( currentUser.getId ( ) );
 
-        var savedProject = projectRepository.save(toSaveProject );
+        var savedProject = projectRepository.save ( toSaveProject );
 
         log.info ( "Project with id {} created by user with id {}" ,
                 savedProject.getId ( ) , currentUser.getId ( ) );
@@ -66,29 +68,29 @@ public class ProjectServiceImplementation implements ProjectService {
 
     public ProjectResponseDto restoreProject(Long projectId) {
 
-        Objects.requireNonNull(projectId, "The project id must not be null");
+        Objects.requireNonNull ( projectId , "The project id must not be null" );
 
         var currentUser = securityHelper.getCurrentUser ( );
         var project = securityHelper.projectExistsCheck ( projectId );
-        var team = securityHelper.teamExistsAndActiveCheck ( project.getTeamId () );
+        var team = securityHelper.teamExistsAndActiveCheck ( project.getTeamId ( ) );
         var newStatus = ProjectStatus.PLANNED;
 
         securityHelper.isUserActive ( currentUser );
         securityHelper.isSystemAdmin ( currentUser );
-        securityHelper.validateStatusValidation ( project.getStatus () , newStatus );
-        securityHelper.validateProjectNameNotExistsForUpdate ( project.getName () , team.getId () , projectId );
-        securityHelper.teamActiveCheck (  project.getTeamId () );
+        securityHelper.validateStatusValidation ( project.getStatus ( ) , newStatus );
+        securityHelper.validateProjectNameNotExistsForUpdate ( project.getName ( ) , team.getId ( ) , projectId );
+        securityHelper.teamActiveCheck ( project.getTeamId ( ) );
 
-        project.setStatus ( newStatus);
-        project.setUpdatedBy (   currentUser.getId () );
+        project.setStatus ( newStatus );
+        project.setUpdatedBy ( currentUser.getId ( ) );
 
         var restoredProject = projectRepository.save ( project );
 
-        log.info("Project '{}' (ID: {}) restored by admin {} (ID: {}) from DELETED to PLANNED",
-                restoredProject.getName(),
-                restoredProject.getId(),
-                currentUser.getEmail(),
-                currentUser.getId());
+        log.info ( "Project '{}' (ID: {}) restored by admin {} (ID: {}) from DELETED to PLANNED" ,
+                restoredProject.getName ( ) ,
+                restoredProject.getId ( ) ,
+                currentUser.getEmail ( ) ,
+                currentUser.getId ( ) );
 
         return projectMapper.toDto ( restoredProject );
 
@@ -98,31 +100,31 @@ public class ProjectServiceImplementation implements ProjectService {
     @Transactional
     public ProjectResponseDto activateProject(Long projectId) {
 
-        Objects.requireNonNull(projectId, "The project id must not be null");
+        Objects.requireNonNull ( projectId , "The project id must not be null" );
 
         var currentUser = securityHelper.getCurrentUser ( );
         var project = securityHelper.projectExistsCheck ( projectId );
-        var team = securityHelper.teamExistsAndActiveCheck ( project.getTeamId () );
-        var oldStatus = project.getStatus ();
+        var team = securityHelper.teamExistsAndActiveCheck ( project.getTeamId ( ) );
+        var oldStatus = project.getStatus ( );
         var newStatus = ProjectStatus.ACTIVE;
 
         securityHelper.isUserActive ( currentUser );
         securityHelper.isSystemAdmin ( currentUser );
-        securityHelper.validateStatusValidation ( project.getStatus () , newStatus );
-        securityHelper.validateProjectNameNotExistsForUpdate ( project.getName () , team.getId () , projectId );
-        securityHelper.dateValidation ( project.getStartDate () , project.getEndDate () );
+        securityHelper.validateStatusValidation ( project.getStatus ( ) , newStatus );
+        securityHelper.validateProjectNameNotExistsForUpdate ( project.getName ( ) , team.getId ( ) , projectId );
+        securityHelper.dateValidation ( project.getStartDate ( ) , project.getEndDate ( ) );
 
-        project.setStatus ( newStatus);
-        project.setUpdatedBy (   currentUser.getId () );
+        project.setStatus ( newStatus );
+        project.setUpdatedBy ( currentUser.getId ( ) );
 
         var activatedProject = projectRepository.save ( project );
 
-        log.info("Project '{}' (ID: {}) activated by admin {} (ID: {}) from {} to ACTIVE",
-                activatedProject.getName(),
-                activatedProject.getId(),
-                currentUser.getEmail(),
-                currentUser.getId(),
-                oldStatus);
+        log.info ( "Project '{}' (ID: {}) activated by admin {} (ID: {}) from {} to ACTIVE" ,
+                activatedProject.getName ( ) ,
+                activatedProject.getId ( ) ,
+                currentUser.getEmail ( ) ,
+                currentUser.getId ( ) ,
+                oldStatus );
 
         return projectMapper.toDto ( activatedProject );
     }
@@ -131,28 +133,28 @@ public class ProjectServiceImplementation implements ProjectService {
     @Transactional
     public void archiveProject(Long projectId) {
 
-        Objects.requireNonNull ( projectId, "The project id must not be null" );
+        Objects.requireNonNull ( projectId , "The project id must not be null" );
 
         var currentUser = securityHelper.getCurrentUser ( );
         var project = securityHelper.projectExistsCheck ( projectId );
-        var team = securityHelper.teamExistsAndActiveCheck ( project.getTeamId () );
-        var oldStatus = project.getStatus ();
+        var team = securityHelper.teamExistsAndActiveCheck ( project.getTeamId ( ) );
+        var oldStatus = project.getStatus ( );
         var newStatus = ProjectStatus.ARCHIVED;
 
         securityHelper.isUserActive ( currentUser );
         securityHelper.isSystemAdmin ( currentUser );
-        securityHelper.validateStatusValidation ( project.getStatus () , newStatus );
+        securityHelper.validateStatusValidation ( project.getStatus ( ) , newStatus );
 
-        project.setStatus ( newStatus);
-        project.setUpdatedBy (   currentUser.getId () );
+        project.setStatus ( newStatus );
+        project.setUpdatedBy ( currentUser.getId ( ) );
         var archivedProject = projectRepository.save ( project );
 
-        log.info("Project '{}' (ID: {}) archived by admin {} (ID: {}) from {} to ARCHIVED",
-                archivedProject.getName(),
-                archivedProject.getId(),
-                currentUser.getEmail(),
-                currentUser.getId(),
-                oldStatus);
+        log.info ( "Project '{}' (ID: {}) archived by admin {} (ID: {}) from {} to ARCHIVED" ,
+                archivedProject.getName ( ) ,
+                archivedProject.getId ( ) ,
+                currentUser.getEmail ( ) ,
+                currentUser.getId ( ) ,
+                oldStatus );
 
     }
 
@@ -167,14 +169,50 @@ public class ProjectServiceImplementation implements ProjectService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ProjectResponseDto getProjectById(Long projectId) {
-        return null;
+
+        Objects.requireNonNull ( projectId , "The project id must not be null" );
+
+        var currentUser = securityHelper.getCurrentUser ( );
+        securityHelper.isUserActive ( currentUser );
+
+        var project = securityHelper.projectRetrievableCheckUponRole ( currentUser , projectId );
+
+        if (!securityHelper.systemAdminCheck ( currentUser )) {
+            securityHelper.teamActiveCheck ( project.getTeamId ( ) );
+        }
+
+        securityHelper.isMemberInTeamOrSystemAdmin ( project.getTeamId ( ) , currentUser );
+
+        return projectMapper.toDto ( project );
     }
 
+
     @Override
-    public Page<ProjectResponseDto> getProjectsByOwner(Pageable pageable , Long ownerId) {
-        return null;
+    @Transactional(readOnly = true)
+    public Page<ProjectResponseDto> getProjectsByOwner(Pageable pageable, Long ownerId) {
+
+        Objects.requireNonNull(ownerId, "Owner ID must not be null");
+
+        var currentUser = securityHelper.getCurrentUser();
+        securityHelper.isUserActive(currentUser);
+
+        if (securityHelper.systemAdminCheck(currentUser)) {
+            return projectRepository.findByOwnerIdForAdmin(ownerId, pageable)
+                    .map(projectMapper::toDto);
+        }
+
+        if (!securityHelper.isSelfOperation(currentUser.getId(), ownerId)) {
+            throw new AccessDeniedException("Access denied: You can only view your own projects.");
+        }
+
+        return projectRepository.findByOwnerId(ownerId, pageable)
+                .map(projectMapper::toDto);
     }
+
+
+
 
     @Override
     public ProjectResponseDto updateProject(Long projectId , UpdateProjectDto requestDto) {

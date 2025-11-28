@@ -5,6 +5,8 @@ import com.taskmanagement.project.dto.ProjectResponseDto;
 import com.taskmanagement.project.service.ProjectService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -56,6 +58,24 @@ public class ProjectController {
 
         projectService.archiveProject( projectId );
         return ResponseEntity.status( HttpStatus.NO_CONTENT).build ( );
+
+    }
+
+    @GetMapping("/{projectId}" )
+
+    public ResponseEntity <ProjectResponseDto> getProjectById
+            ( @PathVariable Long projectId ){
+
+        return ResponseEntity.status( HttpStatus.OK).body ( projectService.getProjectById( projectId ) );
+
+    }
+
+    @GetMapping ("/owner/{ownerId}" )
+
+    public ResponseEntity<Page<ProjectResponseDto>> getProjectsByOwner
+            ( @PathVariable Long ownerId , Pageable pageable ) {
+
+        return ResponseEntity.ok ( projectService.getProjectsByOwner ( pageable, ownerId ) );
 
     }
 
