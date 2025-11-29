@@ -1,6 +1,7 @@
 package com.taskmanagement.project.service;
 
 import com.taskmanagement.common.exception.types.Exceptions.*;
+import com.taskmanagement.project.dto.ProjectResponseDto;
 import com.taskmanagement.project.entity.Project;
 import com.taskmanagement.project.enums.ProjectStatus;
 import com.taskmanagement.project.repository.ProjectRepository;
@@ -16,6 +17,7 @@ import com.taskmanagement.user.enums.UserStatus;
 import com.taskmanagement.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -56,12 +58,12 @@ public class SecurityHelper {
         }
     }
 
-    protected boolean systemAdminCheck (User currentUser) {
+    protected boolean isSystemAdmin (User currentUser) {
 
         return currentUser.getRole ( ) == Role.ADMIN;
     }
 
-    protected void isSystemAdmin (User currentUser) {
+    protected void systemAdminCheck (User currentUser) {
 
         if (currentUser.getRole ( ) != com.taskmanagement.user.enums.Role.ADMIN) {
             throw new AccessDeniedException ( "Only system admin can do this process" );
@@ -269,6 +271,12 @@ public class SecurityHelper {
                 }
                 break;
 
+            case DELETED:
+
+                break;
+
+
+
         }
 
     }
@@ -280,16 +288,12 @@ public class SecurityHelper {
 
     }
 
-    protected void projectActiveCheck(Long projectId) {
+    protected Project projectExistsCheckAndRetrievableCheckUponRole (User currentUser , Long projectId ) {
 
-        if (! projectRepository.existsByIdAndStatusActive ( projectId ) )
+        if (! projectRepository.existsById ( projectId ) )
             throw new ProjectNotFoundException ( projectId );
 
-    }
-
-    protected Project projectRetrievableCheckUponRole (User currentUser , Long projectId ) {
-
-        if (systemAdminCheck ( currentUser ))
+        if (isSystemAdmin ( currentUser ))
             return projectExistsCheck ( projectId );
 
         else
@@ -299,7 +303,7 @@ public class SecurityHelper {
 
     protected Team teamRetrievableCheckUponRole (User currentUser , Long teamId ) {
 
-        if (systemAdminCheck ( currentUser ))
+        if (isSystemAdmin ( currentUser ))
             return teamExists ( teamId );
 
         else
@@ -309,10 +313,15 @@ public class SecurityHelper {
 
     protected void isSystemAdminOrTeamOwner ( User currentUser , Long ownerId) {
 
-        if (! systemAdminCheck(currentUser) && ! isSelfOperation ( currentUser.getId () , ownerId ) )
+        if (! isSystemAdmin (currentUser) && ! isSelfOperation ( currentUser.getId () , ownerId ) )
             throw new AccessDeniedException ( "Only System admin or the team owner can do this process" );
     }
 
+    protected Project projectExistCheck (Long projectId) {
+
+        return projectRepository.findById ( projectId )
+                .orElseThrow ( () -> new ProjectNotFoundException ( projectId ) );
+    }
 
 
 

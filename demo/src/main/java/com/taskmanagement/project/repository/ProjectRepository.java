@@ -2,6 +2,7 @@ package com.taskmanagement.project.repository;
 
 import com.taskmanagement.project.entity.Project;
 import com.taskmanagement.project.enums.ProjectStatus;
+import org.antlr.v4.runtime.misc.MultiMap;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -55,6 +56,15 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
             @Param("ownerId") Long ownerId, Pageable pageable
     );
 
+    @Query ("select p from Project p " +
+            "where p.teamId = :teamId " )
+
+    Page <Project> findByTeamIdForAdmin (@Param ("teamId") Long teamId , Pageable pageable);
 
 
+    @Query ("select p from Project p " +
+            "where p.teamId = :teamId " +
+            "and p.status != com.taskmanagement.project.enums.ProjectStatus.DELETED" )
+
+    Page <Project> findByTeamId ( Long teamId , Pageable pageable );
 }

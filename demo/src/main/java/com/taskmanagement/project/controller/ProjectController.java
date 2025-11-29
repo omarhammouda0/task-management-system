@@ -7,6 +7,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -73,9 +75,39 @@ public class ProjectController {
     @GetMapping ("/owner/{ownerId}" )
 
     public ResponseEntity<Page<ProjectResponseDto>> getProjectsByOwner
-            ( @PathVariable Long ownerId , Pageable pageable ) {
+            ( @PathVariable Long ownerId ,
+              @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+            )  {
 
         return ResponseEntity.ok ( projectService.getProjectsByOwner ( pageable, ownerId ) );
+
+    }
+
+    @GetMapping("/team/{teamId}")
+    public ResponseEntity<Page<ProjectResponseDto>> getProjectsByTeam(
+            @PathVariable Long teamId,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        return ResponseEntity.ok(projectService.getProjectsByTeam(pageable, teamId));
+    }
+
+    @GetMapping("/admin/all")
+    @PreAuthorize ( "hasRole('ADMIN')" )
+
+    public ResponseEntity<Page<ProjectResponseDto>> getAllProjectsForAdmin(
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        return ResponseEntity.ok(projectService.getAllProjectsForAdmin (pageable));
+    }
+
+
+    @DeleteMapping ("/delete/{projectId}" )
+    @PreAuthorize ( "hasRole('ADMIN')" )
+
+    public ResponseEntity<Void> deleteProject(@PathVariable Long projectId) {
+
+        projectService.deleteProject(projectId);
+        return ResponseEntity.noContent().build();
 
     }
 

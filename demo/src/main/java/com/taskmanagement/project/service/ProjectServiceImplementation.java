@@ -62,10 +62,90 @@ public class ProjectServiceImplementation implements ProjectService {
 
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public ProjectResponseDto getProjectById(Long projectId) {
+
+        Objects.requireNonNull ( projectId , "The project id must not be null" );
+
+        var currentUser = securityHelper.getCurrentUser ( );
+        securityHelper.isUserActive ( currentUser );
+
+        var project = securityHelper.projectExistsCheckAndRetrievableCheckUponRole ( currentUser , projectId );
+
+        if (!securityHelper.isSystemAdmin ( currentUser )) {
+            securityHelper.teamActiveCheck ( project.getTeamId ( ) );
+        }
+
+        securityHelper.isMemberInTeamOrSystemAdmin ( project.getTeamId ( ) , currentUser );
+
+        return projectMapper.toDto ( project );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ProjectResponseDto> getProjectsByTeam(Pageable pageable , Long teamId) {
+
+        Objects.requireNonNull ( teamId, "The team id must not be null" );
+        Objects.requireNonNull ( pageable , "The pageable must not be null" );
+
+        var currentUser = securityHelper.getCurrentUser ( );
+
+        securityHelper.isUserActive ( currentUser );
+        securityHelper.teamExistsAndActiveCheck ( teamId );
+        securityHelper.isMemberInTeamOrSystemAdmin ( teamId , currentUser );
+
+        if (securityHelper.isSystemAdmin (  currentUser ) ) {
+
+            return projectRepository.findByTeamIdForAdmin ( teamId , pageable )
+                    .map ( projectMapper::toDto );
+        }
+
+        return projectRepository.findByTeamId ( teamId , pageable )
+                .map ( projectMapper::toDto );
+
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ProjectResponseDto> getProjectsByOwner(Pageable pageable , Long ownerId) {
+
+        Objects.requireNonNull ( ownerId , "Owner ID must not be null" );
+        Objects.requireNonNull ( pageable , "The pageable must not be null" );
+
+        var currentUser = securityHelper.getCurrentUser ( );
+        securityHelper.isUserActive ( currentUser );
+
+        if (securityHelper.isSystemAdmin ( currentUser )) {
+            return projectRepository.findByOwnerIdForAdmin ( ownerId , pageable )
+                    .map ( projectMapper::toDto );
+        }
+
+        if (!securityHelper.isSelfOperation ( currentUser.getId ( ) , ownerId )) {
+            throw new AccessDeniedException ( "Access denied: You can only view your own projects." );
+        }
+
+        return projectRepository.findByOwnerId ( ownerId , pageable )
+                .map ( projectMapper::toDto );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ProjectResponseDto> getAllProjectsForAdmin(Pageable pageable) {
+
+        Objects.requireNonNull ( pageable , "The pageable must not be null" );
+
+        var currentUser = securityHelper.getCurrentUser ( );
+        securityHelper.isUserActive ( currentUser );
+        securityHelper.isSystemAdmin ( currentUser );
+
+        return projectRepository.findAll (pageable)
+                .map ( projectMapper::toDto );
+
+    }
 
     @Override
     @Transactional
-
     public ProjectResponseDto restoreProject(Long projectId) {
 
         Objects.requireNonNull ( projectId , "The project id must not be null" );
@@ -163,56 +243,6 @@ public class ProjectServiceImplementation implements ProjectService {
         return null;
     }
 
-    @Override
-    public Page<ProjectResponseDto> getProjectsByTeam(Pageable pageable , Long teamId) {
-        return null;
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public ProjectResponseDto getProjectById(Long projectId) {
-
-        Objects.requireNonNull ( projectId , "The project id must not be null" );
-
-        var currentUser = securityHelper.getCurrentUser ( );
-        securityHelper.isUserActive ( currentUser );
-
-        var project = securityHelper.projectRetrievableCheckUponRole ( currentUser , projectId );
-
-        if (!securityHelper.systemAdminCheck ( currentUser )) {
-            securityHelper.teamActiveCheck ( project.getTeamId ( ) );
-        }
-
-        securityHelper.isMemberInTeamOrSystemAdmin ( project.getTeamId ( ) , currentUser );
-
-        return projectMapper.toDto ( project );
-    }
-
-
-    @Override
-    @Transactional(readOnly = true)
-    public Page<ProjectResponseDto> getProjectsByOwner(Pageable pageable, Long ownerId) {
-
-        Objects.requireNonNull(ownerId, "Owner ID must not be null");
-
-        var currentUser = securityHelper.getCurrentUser();
-        securityHelper.isUserActive(currentUser);
-
-        if (securityHelper.systemAdminCheck(currentUser)) {
-            return projectRepository.findByOwnerIdForAdmin(ownerId, pageable)
-                    .map(projectMapper::toDto);
-        }
-
-        if (!securityHelper.isSelfOperation(currentUser.getId(), ownerId)) {
-            throw new AccessDeniedException("Access denied: You can only view your own projects.");
-        }
-
-        return projectRepository.findByOwnerId(ownerId, pageable)
-                .map(projectMapper::toDto);
-    }
-
-
-
 
     @Override
     public ProjectResponseDto updateProject(Long projectId , UpdateProjectDto requestDto) {
@@ -220,12 +250,40 @@ public class ProjectServiceImplementation implements ProjectService {
     }
 
     @Override
+    @Transactional
     public void deleteProject(Long projectId) {
 
+        Objects.requireNonNull ( projectId , "The project id must not be null" );
+
+        var currentUser = securityHelper.getCurrentUser ( );
+
+        securityHelper.isUserActive ( currentUser );
+        securityHelper.isSystemAdmin ( currentUser );
+
+        var project = securityHelper.projectExistsCheck ( projectId );
+
+        var oldStatus = project.getStatus ( );
+        var newStatus = ProjectStatus.DELETED;
+
+        securityHelper.validateStatusValidation ( project.getStatus ( ) , newStatus );
+
+        project.setStatus ( newStatus );
+        project.setUpdatedBy ( currentUser.getId ( ) );
+
+        projectRepository.save ( project );
+
+        log.info ( "Project '{}' (ID: {}) deleted by admin {} (ID: {}) from {} to DELETED" ,
+                project.getName ( ) ,
+                project.getId ( ) ,
+                currentUser.getEmail ( ) ,
+                currentUser.getId ( ) ,
+                oldStatus );
+
     }
 
-    @Override
-    public Page<ProjectResponseDto> getAllProjectsForAdmin(Pageable pageable) {
-        return null;
-    }
+
+
+
+
 }
+
