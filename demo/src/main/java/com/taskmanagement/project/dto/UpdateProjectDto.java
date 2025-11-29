@@ -13,7 +13,6 @@ public record UpdateProjectDto(
         @Size(max = 500, message = "Project description must not exceed 500 characters")
         String description ,
 
-
         ProjectStatus status ,
 
         Instant startDate ,

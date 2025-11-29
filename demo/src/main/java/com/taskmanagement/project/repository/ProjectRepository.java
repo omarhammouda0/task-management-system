@@ -32,6 +32,12 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     @Query ("SELECT p FROM Project p WHERE p.id = :projectId AND p.status = 'ACTIVE'")
     Optional<Project> findByIdAndStatusActive(@Param ( "projectId" ) Long projectId);
 
+
+
+    @Query ("SELECT p FROM Project p WHERE p.id = :projectId AND p.status != 'DELETED'")
+    Optional<Project> findByIdAndStatusNotDeleted(@Param ( "projectId" ) Long projectId);
+
+
     @Query("SELECT p FROM Project p WHERE p.id = :projectId AND p.status = com.taskmanagement.project.enums.ProjectStatus.ACTIVE")
     boolean existsByIdAndStatusActive(Long projectId);
 

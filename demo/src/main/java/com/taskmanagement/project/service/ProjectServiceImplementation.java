@@ -239,15 +239,115 @@ public class ProjectServiceImplementation implements ProjectService {
     }
 
     @Override
+    @Transactional
     public ProjectResponseDto transferProject(Long projectId , Long newTeamId) {
-        return null;
+
+        Objects.requireNonNull ( projectId , "The project id must not be null" );
+        Objects.requireNonNull ( newTeamId , "The new team id must not be null" );
+
+        var currentUser = securityHelper.getCurrentUser ( );
+
+        securityHelper.isUserActive ( currentUser );
+        securityHelper.systemAdminCheck ( currentUser );
+
+        var project = securityHelper.projectExistsAndNotDeletedCheck (  projectId );
+        var oldTeamId = project.getTeamId ( );
+
+        securityHelper.isTeamExistingAndActiveCheck (  newTeamId );
+        securityHelper.notSameTeamCheck (  project.getTeamId ( ), newTeamId );
+        securityHelper.validateProjectNameNotExists ( project.getName () , newTeamId );
+
+        project.setTeamId (  newTeamId );
+        project.setUpdatedBy ( currentUser.getId ( ) );
+
+        var transferredProject = projectRepository.save(project);
+
+        log.info("Project '{}' (ID: {}) transferred by admin {} (ID: {}) from team {} to team {}",
+                transferredProject.getName(),
+                transferredProject.getId(),
+                currentUser.getEmail(),
+                currentUser.getId(),
+                oldTeamId,
+                newTeamId);
+
+
+        return  projectMapper.toDto ( project );
+
     }
 
 
     @Override
-    public ProjectResponseDto updateProject(Long projectId , UpdateProjectDto requestDto) {
-        return null;
+    @Transactional
+    public ProjectResponseDto updateProject(Long projectId , UpdateProjectDto dto) {
+
+        Objects.requireNonNull ( projectId , "The project id must not be null" );
+        Objects.requireNonNull ( dto , "The project update data must not be null" );
+
+        if (dto.name ( ) == null &&
+                dto.description ( ) == null &&
+                dto.status ( ) == null &&
+                dto.startDate ( ) == null &&
+                dto.endDate ( ) == null)
+
+            throw new IllegalStateException ( "At least one field must be provided for update" );
+
+        var currentUser = securityHelper.getCurrentUser ( );
+        securityHelper.isUserActive ( currentUser );
+
+        var project = securityHelper.projectExistsAndNotDeletedCheck ( projectId );
+
+        if (!securityHelper.isSystemAdmin ( currentUser ) &&
+                !securityHelper.isTeamOwnerOrTeamAdmin ( currentUser.getId ( ) , project.getTeamId ( ) ))
+
+            throw new AccessDeniedException ( "Access denied:" +
+                    " Only system admin , team owner and team admin" +
+                    " have permission to update this project." );
+
+        securityHelper.teamActiveCheck ( project.getTeamId ( ) );
+
+        if (dto.name () != null) {
+
+            var trimmedName = dto.name ( ).trim ( );
+
+            if (trimmedName.isEmpty()) {
+                throw new IllegalArgumentException ("Project name cannot be blank");
+            }
+            securityHelper.validateProjectNameNotExistsForUpdate(
+                    trimmedName,
+                    project.getTeamId(),
+                    projectId
+            );
+        }
+
+        if (dto.status() != null)
+            securityHelper.validateStatusValidation(project.getStatus(), dto.status());
+
+
+
+        if (dto.startDate() != null || dto.endDate() != null) {
+            var finalStartDate = dto.startDate ( ) != null ? dto.startDate ( ) : project.getStartDate ( );
+            var finalEndDate = dto.endDate ( ) != null ? dto.endDate ( ) : project.getEndDate ( );
+            securityHelper.dateValidation ( finalStartDate , finalEndDate );
+        }
+
+
+
+        projectMapper.updateEntityFromDto ( dto , project );
+
+        project.setUpdatedBy ( currentUser.getId ( ) );
+        var updatedProject = projectRepository.save ( project );
+
+        log.info ( "Project '{}' (ID: {}) updated by user {} (ID: {})" ,
+                updatedProject.getName ( ) ,
+                updatedProject.getId ( ) ,
+                currentUser.getEmail ( ) ,
+                currentUser.getId ( ) );
+
+        return projectMapper.toDto ( updatedProject );
+
     }
+
+
 
     @Override
     @Transactional

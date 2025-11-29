@@ -2,6 +2,8 @@ package com.taskmanagement.project.controller;
 
 import com.taskmanagement.project.dto.CreateProjectDto;
 import com.taskmanagement.project.dto.ProjectResponseDto;
+import com.taskmanagement.project.dto.TransferProjectDto;
+import com.taskmanagement.project.dto.UpdateProjectDto;
 import com.taskmanagement.project.service.ProjectService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -63,6 +65,19 @@ public class ProjectController {
 
     }
 
+
+    @PostMapping("/{projectId}/transfer")
+    @PreAuthorize("hasRole('ADMIN')")
+
+    public ResponseEntity<ProjectResponseDto> transferProject(
+            @PathVariable Long projectId , @Valid @RequestBody TransferProjectDto transferProjectDto
+    ) {
+        return ResponseEntity.ok ( projectService
+                .transferProject ( projectId , transferProjectDto.getNewTeamId ( ) ) );
+
+    }
+
+
     @GetMapping("/{projectId}" )
 
     public ResponseEntity <ProjectResponseDto> getProjectById
@@ -98,6 +113,15 @@ public class ProjectController {
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
         return ResponseEntity.ok(projectService.getAllProjectsForAdmin (pageable));
+    }
+
+    @PatchMapping ("/{projectId}" )
+
+    public ResponseEntity<ProjectResponseDto> updateProject
+            (@PathVariable Long projectId , @Valid @RequestBody UpdateProjectDto dto ){
+
+        return ResponseEntity.ok ( projectService.updateProject( projectId ,dto ) ) ;
+
     }
 
 

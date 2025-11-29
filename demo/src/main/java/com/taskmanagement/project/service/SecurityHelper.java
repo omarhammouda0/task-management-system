@@ -1,9 +1,13 @@
 package com.taskmanagement.project.service;
 
+import com.taskmanagement.common.exception.ErrorCode.ErrorCode;
+import com.taskmanagement.common.exception.types.Base.DuplicateResourceException;
 import com.taskmanagement.common.exception.types.Exceptions.*;
 import com.taskmanagement.project.dto.ProjectResponseDto;
+import com.taskmanagement.project.dto.UpdateProjectDto;
 import com.taskmanagement.project.entity.Project;
 import com.taskmanagement.project.enums.ProjectStatus;
+import com.taskmanagement.project.mapper.ProjectMapper;
 import com.taskmanagement.project.repository.ProjectRepository;
 import com.taskmanagement.team.entity.Team;
 import com.taskmanagement.team.entity.TeamMember;
@@ -36,6 +40,7 @@ public class SecurityHelper {
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final ProjectRepository projectRepository;
+    private final ProjectMapper projectMapper;
 
     protected User getCurrentUser() {
 
@@ -58,34 +63,16 @@ public class SecurityHelper {
         }
     }
 
-    protected boolean isSystemAdmin (User currentUser) {
+    protected boolean isSystemAdmin(User currentUser) {
 
         return currentUser.getRole ( ) == Role.ADMIN;
     }
 
-    protected void systemAdminCheck (User currentUser) {
+    protected void systemAdminCheck(User currentUser) {
 
         if (currentUser.getRole ( ) != com.taskmanagement.user.enums.Role.ADMIN) {
             throw new AccessDeniedException ( "Only system admin can do this process" );
         }
-    }
-
-    protected User getUserById(Long userId) {
-
-        return userRepository.findById ( userId )
-                .orElseThrow ( () -> new UserNotFoundException ( userId ) );
-    }
-
-    protected User userExistsAndActiveCheck(Long userId) {
-
-        var user = userRepository.findById ( userId )
-                .orElseThrow ( () -> new UserNotFoundException ( userId ) );
-
-        if (user.getStatus ( ) != UserStatus.ACTIVE) {
-            throw new UserNotActiveException ( user.getEmail ( ) );
-        }
-
-        return user;
     }
 
     protected Team teamExistsAndActiveCheck(Long teamId) {
@@ -100,9 +87,17 @@ public class SecurityHelper {
 
     }
 
-    protected boolean IsMemberInTheTeam (Long userId, Long teamId) {
+    protected void isTeamExistingAndActiveCheck(Long teamId) {
 
-        return teamMemberRepository.existsByTeamIdAndUserId ( teamId, userId ) ;
+        if (!teamRepository.existsByIdAndStatusActive ( teamId ))
+            throw new TeamNotFoundException ( teamId );
+    }
+
+    protected void notSameTeamCheck(Long teamId , Long newTeamId) {
+
+        if (teamId.equals ( newTeamId ))
+            throw new DuplicateResourceException ( ErrorCode.INVALID_REQUEST.name ( ) ,
+                    "The new team must be different from the current team" );
 
     }
 
@@ -114,17 +109,17 @@ public class SecurityHelper {
             throw new UserNotInTeamException ( userToAdd.getId ( ) , teamId );
     }
 
-    protected void isUserSystemAdminOrTeamOwner(Long userId , Long teamId) {
+    protected boolean isTeamOwnerOrTeamAdmin(Long userId , Long teamId) {
 
-       if (! userRepository.existsByIdAndRoleAdmin ( userId ) &&
-            ! teamMemberRepository.existsByTeamIdAndUserIdAndRole ( teamId , userId , TeamRole.OWNER ) )
-           throw new AccessDeniedException ( "Only system admin or team owner can do this process" );
+        return teamMemberRepository.existsByTeamIdAndUserIdAndRoleIn ( teamId , userId ,
+                List.of ( TeamRole.OWNER , TeamRole.ADMIN ) );
+
 
     }
 
     protected void isOwner(Long userId , Long teamId) {
 
-        if (! teamMemberRepository.existsByTeamIdAndUserIdAndRole ( teamId , userId , TeamRole.OWNER ))
+        if (!teamMemberRepository.existsByTeamIdAndUserIdAndRole ( teamId , userId , TeamRole.OWNER ))
             throw new AccessDeniedException ( "Only the team owner can do this process" );
     }
 
@@ -139,54 +134,15 @@ public class SecurityHelper {
 
     }
 
-    protected void roleTransitionValidation(Long teamId , TeamRole currentRole , TeamRole newRole) {
+    protected void validateProjectNameNotExists(String projectName , Long teamId) {
 
-        if (currentRole == newRole)
-            throw new InvalidRoleTransitionException ( "New role must be different from current role " );
-
-
-        if (currentRole.equals ( TeamRole.OWNER ) && isLastOwner ( teamId ))
-            throw new InvalidRoleTransitionException ( "Cannot demote the last owner " );
-
-
-    }
-
-    protected TeamMember getTeamMember(Long teamId , Long userId) {
-
-        return teamMemberRepository.findByTeamIdAndUserId ( teamId , userId )
-                .orElseThrow ( () -> new UserNotInTeamException ( userId , teamId ) );
-
-    }
-
-    protected boolean isLastActiveTeamMember(Long teamId) {
-
-        return teamMemberRepository.isLastActiveTeamMember ( teamId );
-
-    }
-
-//    protected boolean isTeamOwnerOrAdmin(Long teamId , Long userId) {
-//
-//        return teamMemberRepository.existsByTeamIdAndUserIdAndRoleIn ( teamId , userId ,
-//                java.util.Arrays.asList ( TeamRole.OWNER , TeamRole.ADMIN ) );
-//
-//    }
-
-    protected Team teamExists(Long teamId) {
-
-        return teamRepository.findById ( teamId )
-                .orElseThrow ( () -> new TeamNotFoundException ( teamId ) );
-
-    }
-
-    protected void validateProjectNameNotExists( String projectName , Long teamId ) {
-
-        if (projectRepository.existsByNameIgnoreCaseAndTeamId( projectName , teamId ) )
+        if (projectRepository.existsByNameIgnoreCaseAndTeamId ( projectName , teamId ))
             throw new ProjectNameAlreadyExistsException ( projectName , teamId );
     }
 
-    protected void validateProjectNameNotExistsForUpdate( String projectName , Long teamId , Long projectId ) {
+    protected void validateProjectNameNotExistsForUpdate(String projectName , Long teamId , Long projectId) {
 
-        if (projectRepository.existsByTeamIdAndNameIgnoreCaseAndIdNot( teamId , projectName , projectId ) )
+        if (projectRepository.existsByTeamIdAndNameIgnoreCaseAndIdNot ( teamId , projectName , projectId ))
             throw new ProjectNameAlreadyExistsException ( projectName , teamId );
     }
 
@@ -195,7 +151,7 @@ public class SecurityHelper {
         if (status == null)
             return ProjectStatus.PLANNED;
 
-        if   (    status != ProjectStatus.PLANNED &&
+        if (status != ProjectStatus.PLANNED &&
                 status != ProjectStatus.ACTIVE &&
                 status != ProjectStatus.ON_HOLD) {
 
@@ -208,15 +164,14 @@ public class SecurityHelper {
     protected void dateValidation(Instant startDate , Instant endDate) {
 
 
-
         if (startDate != null) {
-            if (startDate.isBefore ( Instant.now () )) {
+            if (startDate.isBefore ( Instant.now ( ) )) {
                 throw new InvalidProjectDateException ( "Start date must be in the future" );
             }
         }
 
         if (endDate != null) {
-            if (endDate.isBefore ( Instant.now ()  )) {
+            if (endDate.isBefore ( Instant.now ( ) )) {
                 throw new InvalidProjectDateException ( "End date must be today or in the future" );
             }
         }
@@ -228,16 +183,23 @@ public class SecurityHelper {
         }
     }
 
-    protected Project projectExistsCheck (Long projectId) {
+    protected Project projectExistsCheck(Long projectId) {
 
         return projectRepository.findById ( projectId )
                 .orElseThrow ( () -> new ProjectNotFoundException ( projectId ) );
 
     }
 
-    protected Project projectExistsAndActiveCheck (Long projectId) {
+    protected Project projectExistsAndActiveCheck(Long projectId) {
 
         return projectRepository.findByIdAndStatusActive ( projectId )
+                .orElseThrow ( () -> new ProjectNotFoundException ( projectId ) );
+
+    }
+
+    protected Project projectExistsAndNotDeletedCheck(Long projectId) {
+
+        return projectRepository.findByIdAndStatusNotDeleted ( projectId )
                 .orElseThrow ( () -> new ProjectNotFoundException ( projectId ) );
 
     }
@@ -255,6 +217,17 @@ public class SecurityHelper {
                     throw new InvalidProjectStatusException ( oldStatus , newStatus );
                 }
                 break;
+
+            case ON_HOLD:
+
+                if (oldStatus != ProjectStatus.PLANNED &&
+                        oldStatus != ProjectStatus.ACTIVE)
+
+                    throw new InvalidProjectStatusException ( oldStatus , newStatus );
+
+
+                break;
+
 
             case ACTIVE:
                 if (oldStatus != ProjectStatus.PLANNED &&
@@ -275,6 +248,13 @@ public class SecurityHelper {
 
                 break;
 
+            case COMPLETED:
+
+                if (oldStatus != ProjectStatus.ACTIVE) {
+                    throw new InvalidProjectStatusException ( oldStatus , newStatus );
+                }
+                break;
+
 
 
         }
@@ -283,14 +263,14 @@ public class SecurityHelper {
 
     protected void teamActiveCheck(Long teamId) {
 
-        if (! teamRepository.existsByIdAndStatusActive ( teamId ) )
+        if (!teamRepository.existsByIdAndStatusActive ( teamId ))
             throw new TeamNotFoundException ( teamId );
 
     }
 
-    protected Project projectExistsCheckAndRetrievableCheckUponRole (User currentUser , Long projectId ) {
+    protected Project projectExistsCheckAndRetrievableCheckUponRole(User currentUser , Long projectId) {
 
-        if (! projectRepository.existsById ( projectId ) )
+        if (!projectRepository.existsById ( projectId ))
             throw new ProjectNotFoundException ( projectId );
 
         if (isSystemAdmin ( currentUser ))
@@ -301,31 +281,33 @@ public class SecurityHelper {
 
     }
 
-    protected Team teamRetrievableCheckUponRole (User currentUser , Long teamId ) {
+    protected void updateConditionsCheck(
 
-        if (isSystemAdmin ( currentUser ))
-            return teamExists ( teamId );
+            String trimmedName ,
+            ProjectStatus status ,
+            Instant startDate ,
+            Instant endDate ,
+            Long teamId ,
+            Long projectId) {
 
-        else
-            return teamExistsAndActiveCheck ( teamId );
+        if (trimmedName != null && !trimmedName.isEmpty ( )) {
+            validateProjectNameNotExistsForUpdate ( trimmedName , teamId , projectId );
+        }
+
+        if (status != null) {
+            validateStatusValidation (
+                    projectExistsAndNotDeletedCheck ( projectId ).getStatus ( ) ,
+                    status );
+        }
+
+        if (startDate != null || endDate != null)
+            dateValidation ( startDate , endDate );
 
     }
-
-    protected void isSystemAdminOrTeamOwner ( User currentUser , Long ownerId) {
-
-        if (! isSystemAdmin (currentUser) && ! isSelfOperation ( currentUser.getId () , ownerId ) )
-            throw new AccessDeniedException ( "Only System admin or the team owner can do this process" );
-    }
-
-    protected Project projectExistCheck (Long projectId) {
-
-        return projectRepository.findById ( projectId )
-                .orElseThrow ( () -> new ProjectNotFoundException ( projectId ) );
-    }
-
-
 
 }
+
+
 
 
 
