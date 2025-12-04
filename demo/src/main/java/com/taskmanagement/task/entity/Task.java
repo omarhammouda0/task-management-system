@@ -1,8 +1,10 @@
 package com.taskmanagement.task.entity;
 
 import com.taskmanagement.common.entity.BaseEntity;
+import com.taskmanagement.project.entity.Project;
 import com.taskmanagement.task.enums.TaskPriority;
 import com.taskmanagement.task.enums.TaskStatus;
+import com.taskmanagement.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -31,10 +33,18 @@ public class Task extends BaseEntity {
     @Column(name = "priority", nullable = false, length = 20)
     private TaskPriority priority = TaskPriority.MEDIUM;
 
-    @Column(name = "project_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id", nullable = false)
+    private Project project;
+
+    @Column(name = "project_id", nullable = false, insertable = false, updatable = false)
     private Long projectId;
 
-    @Column(name = "assigned_to")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_to")
+    private User assignedUser;
+
+    @Column(name = "assigned_to", insertable = false, updatable = false)
     private Long assignedTo;
 
     @Column(name = "due_date")
@@ -43,5 +53,11 @@ public class Task extends BaseEntity {
     @Column(name = "completed_at")
     private Instant completedAt;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by", insertable = false, updatable = false)
+    private User creator;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "updated_by", insertable = false, updatable = false)
+    private User updater;
 }

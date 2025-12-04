@@ -3,42 +3,51 @@ package com.taskmanagement.project.entity;
 import com.taskmanagement.common.entity.BaseEntity;
 import com.taskmanagement.project.enums.ProjectStatus;
 import com.taskmanagement.team.entity.Team;
+import com.taskmanagement.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.Instant;
 
 @Entity
-@Table (name = "projects")
+@Table(name = "projects")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-
 public class Project extends BaseEntity {
 
-    @Column (nullable = false , length = 100)
+    @Column(nullable = false, length = 100)
     private String name;
 
     @Column(length = 500)
     private String description;
 
-    @Column (name = "team_id" , nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "team_id", nullable = false)
+    private Team team;
+
+    @Column(name = "team_id", nullable = false, insertable = false, updatable = false)
     private Long teamId;
 
-    @Column (nullable = false)
+    @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private ProjectStatus status;
 
-    @Column (name = "start_date")
+    @Column(name = "start_date")
     private Instant startDate;
 
-    @Column (name = "end_date")
+    @Column(name = "end_date")
     private Instant endDate;
 
-    @Column (nullable = false , name = "created_by")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by", nullable = false, insertable = false, updatable = false)
+    private User creator;
+
+    @Column(name = "created_by", nullable = false, insertable = false, updatable = false)
     private Long createdBy;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "updated_by", insertable = false, updatable = false)
+    private User updater;
 }
-
-
