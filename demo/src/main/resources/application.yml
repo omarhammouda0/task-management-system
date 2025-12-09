@@ -126,6 +126,9 @@ spring:
       max-request-size: 10MB
       file-size-threshold: 2MB
 
+
+
+
   # ==========================================
   # THYMELEAF (Email Templates)
   # ==========================================
@@ -152,8 +155,13 @@ minio:
   url: http://localhost:9000
   access-key: minioadmin
   secret-key: minioadmin
-  bucket-name: task-management
+  bucket-name: task-management-attachments
   auto-create-bucket: true
+
+# Attachment Configuration
+attachment:
+  max-file-size: 10485760  # 10 MB in bytes (10 * 1024 * 1024)
+  max-files-per-task: 10
 
 # ==========================================
 # RATE LIMITING (Redisson/Bucket4j)

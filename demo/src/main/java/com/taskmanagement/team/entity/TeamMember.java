@@ -45,11 +45,5 @@ public class TeamMember extends BaseEntity {
     @Column(name = "joined_at", nullable = false)
     private Instant joinedAt;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by", insertable = false, updatable = false)
-    private User creator;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "updated_by", insertable = false, updatable = false)
-    private User updater;
 }

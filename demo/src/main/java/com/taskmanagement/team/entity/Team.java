@@ -32,11 +32,5 @@ public class Team extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private TeamStatus status = TeamStatus.ACTIVE;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by", insertable = false, updatable = false)
-    private User creator;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "updated_by", insertable = false, updatable = false)
-    private User updater;
 }

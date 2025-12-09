@@ -130,7 +130,6 @@ class ProjectServiceImplementationTest {
                 .status(ProjectStatus.PLANNED)
                 .startDate(Instant.now().plusSeconds(86400))
                 .endDate(Instant.now().plusSeconds(172800))
-                .createdBy(2L)
                 .build();
         project.setId(1L);
         project.setCreatedAt(Instant.now());

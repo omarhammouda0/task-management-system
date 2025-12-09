@@ -40,14 +40,5 @@ public class Project extends BaseEntity {
     @Column(name = "end_date")
     private Instant endDate;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by", nullable = false, insertable = false, updatable = false)
-    private User creator;
 
-    @Column(name = "created_by", nullable = false, insertable = false, updatable = false)
-    private Long createdBy;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "updated_by", insertable = false, updatable = false)
-    private User updater;
 }

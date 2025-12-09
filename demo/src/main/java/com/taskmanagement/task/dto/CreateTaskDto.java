@@ -24,7 +24,6 @@ public record CreateTaskDto(
 
         TaskPriority priority,
 
-
         TaskStatus status ,
 
         Long assignedTo,
