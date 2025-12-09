@@ -8,17 +8,20 @@ spring:
   # ==========================================
   # DATASOURCE (PostgreSQL)
   # ==========================================
+
   datasource:
-    url: jdbc:postgresql://localhost:5432/taskmanagement
-    username: taskadmin
-    password: Task2024!
-    driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 10
-      minimum-idle: 5
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
+
+      url: jdbc:postgresql://localhost:5432/taskmanagement
+      username: taskadmin
+      password: Task2024!
+      driver-class-name: org.postgresql.Driver
+      hikari:
+        maximum-pool-size: 10
+        minimum-idle: 5
+        connection-timeout: 30000
+        idle-timeout: 600000
+        max-lifetime: 1800000
+
 
   # ==========================================
   # JPA / HIBERNATE
@@ -148,6 +151,7 @@ jwt:
   refresh-token-expiration: 604800000
   issuer: task-management-system
 
+
 # ==========================================
 # MINIO (Object Storage)
 # ==========================================
@@ -275,58 +279,77 @@ app:
 
 ---
 # Railway Production Profile
+
+
+---
 spring:
   config:
     activate:
       on-profile: railway
 
+  # ==========================================
+  # DATASOURCE (PostgreSQL) - FIXED
+  # ==========================================
   datasource:
-    url: ${DATABASE_URL}
-    username: ${DATABASE_USERNAME:postgres}
-    password: ${DATABASE_PASSWORD}
+    # ADD "jdbc:" prefix to the URL
+    url: jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=require&ssl=true
+    username: ${PGUSER}
+    password: ${PGPASSWORD}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
 
+  # ==========================================
+  # FLYWAY - Use same datasource or disable
+  # ==========================================
+  flyway:
+    enabled: false
+    url: jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=require&ssl=true
+    user: ${PGUSER}
+    password: ${PGPASSWORD}
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    validate-on-migrate: true
+
+  # ==========================================
+  # JPA / HIBERNATE
+  # ==========================================
   jpa:
     hibernate:
       ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
-        format_sql: false
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          lob:
+            non_contextual_creation: true
 
-  flyway:
-    enabled: true
-    baseline-on-migrate: true
+  # ==========================================
+  # SERVER
+  # ==========================================
+  server:
+    port: ${PORT:8080}
 
-  servlet:
-    multipart:
-      enabled: true
-      max-file-size: 10MB
-      max-request-size: 10MB
-
-# MinIO Configuration for Railway
+# ==========================================
+# MINIO Configuration
+# ==========================================
 minio:
-  url: ${MINIO_URL}
-  access-key: ${MINIO_ACCESS_KEY}
-  secret-key: ${MINIO_SECRET_KEY}
+  url: ${MINIO_URL:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
   bucket-name: ${MINIO_BUCKET_NAME:task-management-attachments}
   auto-create-bucket: true
 
-# Attachment Configuration
-attachment:
-  max-file-size: 10485760
-  max-files-per-task: 10
-
-# JWT Configuration
-
+# ==========================================
+# JWT CONFIGURATION
+# ==========================================
 jwt:
   secret-key: ${JWT_SECRET}
-  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:900000000000000}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:900000}
   refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800000}
   issuer: task-management-system
-
-# Logging
-logging:
-  level:
-    root: INFO
-    com.taskmanagement: INFO
