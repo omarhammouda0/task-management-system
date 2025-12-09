@@ -141,6 +141,15 @@ spring:
     suffix: .html
     mode: HTML
     encoding: UTF-8
+    check-template-location: true
+    enabled: true
+
+  # ==========================================
+  # STATIC RESOURCES
+  # ==========================================
+  web:
+    resources:
+      static-locations: classpath:/static/,classpath:/public/,classpath:/resources/
 
 # ==========================================
 # SECURITY / JWT CONFIGURATION
@@ -161,6 +170,7 @@ minio:
   secret-key: minioadmin
   bucket-name: task-management-attachments
   auto-create-bucket: true
+
 
 # Attachment Configuration
 attachment:
@@ -360,3 +370,4 @@ jwt:
   access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:900000}
   refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800000}
   issuer: task-management-system
+

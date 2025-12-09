@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Management System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 100px 0;
+        }
+        .feature-card {
+            transition: transform 0.3s;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+        .endpoint-card {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+        }
+        .status-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+<!-- Hero Section -->
+<div class="hero-section text-center">
+    <div class="container">
+        <h1 class="display-4 mb-4">📋 Task Management System</h1>
+        <p class="lead mb-4">Professional task and project management API built with Spring Boot</p>
+        <div class="mt-4">
+                <span class="status-badge bg-success text-white">
+                    Status: <span th:text="${status}">UP</span>
+                </span>
+            <span class="status-badge bg-info text-white mx-2">
+                    Version: <span th:text="${version}">1.0.0</span>
+                </span>
+        </div>
+    </div>
+</div>
+
+<!-- Main Content -->
+<div class="container py-5">
+    <!-- Quick Links -->
+    <div class="row mb-5">
+        <div class="col-md-4 mb-4">
+            <div class="card feature-card h-100">
+                <div class="card-body text-center">
+                    <h3>🔐 Authentication</h3>
+                    <p>Register, login, and manage your account via API</p>
+                    <div class="mt-3">
+                        <a th:href="@{/swagger-ui/index.html}" class="btn btn-primary">Try Auth API</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card feature-card h-100">
+                <div class="card-body text-center">
+                    <h3>📚 API Docs</h3>
+                    <p>Interactive API documentation with Swagger UI</p>
+                    <div class="mt-3">
+                        <a th:href="@{/swagger-ui/index.html}" class="btn btn-success">Open Swagger UI</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card feature-card h-100">
+                <div class="card-body text-center">
+                    <h3>🔧 API Tools</h3>
+                    <p>Check API health and get detailed information</p>
+                    <div class="mt-3">
+                        <a th:href="@{/actuator/health}" class="btn btn-info me-2">Health Check</a>
+                        <a th:href="@{/api/info}" class="btn btn-secondary">API Info</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Endpoints -->
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">📡 Available Endpoints</h2>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">🔐 Authentication</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="endpoint-card p-3 mb-2">
+                                <strong>POST</strong> <code>/api/auth/register</code>
+                                <p class="mb-0 text-muted">Register a new user account</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="endpoint-card p-3 mb-2">
+                                <strong>POST</strong> <code>/api/auth/login</code>
+                                <p class="mb-0 text-muted">Login and receive JWT token</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">📋 Core Features</h5>
+                    <div class="row">
+                        <div class="col-md-4 mb-2">
+                            <div class="endpoint-card p-3">
+                                <strong>📝 Tasks</strong><br>
+                                <code>/api/tasks/**</code>
+                                <p class="mb-0 text-muted small">Create, update, assign & manage tasks</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <div class="endpoint-card p-3">
+                                <strong>📁 Projects</strong><br>
+                                <code>/api/projects/**</code>
+                                <p class="mb-0 text-muted small">Manage projects & archives</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <div class="endpoint-card p-3">
+                                <strong>👥 Teams</strong><br>
+                                <code>/api/teams/**</code>
+                                <p class="mb-0 text-muted small">Team management & collaboration</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <div class="endpoint-card p-3">
+                                <strong>👤 Users</strong><br>
+                                <code>/api/users/**</code>
+                                <p class="mb-0 text-muted small">User profiles & administration</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <div class="endpoint-card p-3">
+                                <strong>💬 Comments</strong><br>
+                                <code>/api/comments/**</code>
+                                <p class="mb-0 text-muted small">Task comments & discussions</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <div class="endpoint-card p-3">
+                                <strong>📎 Attachments</strong><br>
+                                <code>/api/attachments/**</code>
+                                <p class="mb-0 text-muted small">File uploads & downloads</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comments Module -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">💬 Comments</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="endpoint-card p-3 mb-2">
+                                <strong>POST</strong> <code>/api/comments</code>
+                                <p class="mb-0 text-muted">Create a new comment on a task</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="endpoint-card p-3 mb-2">
+                                <strong>GET</strong> <code>/api/comments/{id}</code>
+                                <p class="mb-0 text-muted">Get comment by ID</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="endpoint-card p-3 mb-2">
+                                <strong>GET</strong> <code>/api/comments/task/{taskId}</code>
+                                <p class="mb-0 text-muted">Get all comments for a task</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="endpoint-card p-3 mb-2">
+                                <strong>PATCH</strong> <code>/api/comments/{id}</code>
+                                <p class="mb-0 text-muted">Update a comment</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="endpoint-card p-3 mb-2">
+                                <strong>DELETE</strong> <code>/api/comments/{id}</code>
+                                <p class="mb-0 text-muted">Delete a comment</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="endpoint-card p-3 mb-2">
+                                <strong>GET</strong> <code>/api/comments/my-comments</code>
+                                <p class="mb-0 text-muted">Get your comments</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Attachments Module -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">📎 Attachments</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="endpoint-card p-3 mb-2">
+                                <strong>POST</strong> <code>/api/attachments/task/{taskId}</code>
+                                <p class="mb-0 text-muted">Upload file attachment to a task</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="endpoint-card p-3 mb-2">
+                                <strong>GET</strong> <code>/api/attachments/{id}</code>
+                                <p class="mb-0 text-muted">Get attachment metadata by ID</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="endpoint-card p-3 mb-2">
+                                <strong>GET</strong> <code>/api/attachments/task/{taskId}</code>
+                                <p class="mb-0 text-muted">Get all attachments for a task</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="endpoint-card p-3 mb-2">
+                                <strong>GET</strong> <code>/api/attachments/{id}/download</code>
+                                <p class="mb-0 text-muted">Download attachment file</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="endpoint-card p-3 mb-2">
+                                <strong>DELETE</strong> <code>/api/attachments/{id}</code>
+                                <p class="mb-0 text-muted">Delete an attachment</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="endpoint-card p-3 mb-2">
+                                <strong>GET</strong> <code>/api/attachments/my-attachments</code>
+                                <p class="mb-0 text-muted">Get your attachments</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Start Guide -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h4>🚀 Quick Start</h4>
+                    <p>To use this API, follow these steps:</p>
+                    <ol>
+                        <li><strong>Register</strong> a new account at <code>/api/auth/register</code></li>
+                        <li><strong>Login</strong> to get your JWT token at <code>/api/auth/login</code></li>
+                        <li>Include the token in request headers: <code>Authorization: Bearer YOUR_TOKEN</code></li>
+                        <li>Create <strong>Teams</strong> and <strong>Projects</strong> to organize your work</li>
+                        <li>Add <strong>Tasks</strong> to projects and assign them to team members</li>
+                        <li>Add <strong>Comments</strong> to tasks for discussions and updates</li>
+                        <li>Upload <strong>Attachments</strong> to tasks for file sharing</li>
+                        <li>Explore the <a th:href="@{/swagger-ui/index.html}">Swagger UI</a> for full documentation</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features Overview -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h4>✨ Key Features</h4>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li>✅ JWT-based Authentication & Authorization</li>
+                                <li>✅ Role-based Access Control (USER, ADMIN)</li>
+                                <li>✅ Team & Project Management</li>
+                                <li>✅ Task Creation & Assignment</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li>✅ Comments on Tasks</li>
+                                <li>✅ File Attachments Support</li>
+                                <li>✅ Pagination & Sorting</li>
+                                <li>✅ Swagger API Documentation</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Footer -->
+<footer class="bg-dark text-white py-4 mt-5">
+    <div class="container text-center">
+        <p class="mb-0">Task Management System API • Built with Spring Boot & Thymeleaf</p>
+        <p class="text-muted mb-0">Deployed on Railway • <span th:text="${timestamp}"></span></p>
+    </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
