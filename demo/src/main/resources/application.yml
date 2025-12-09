@@ -299,9 +299,16 @@ spring:
     hikari:
       maximum-pool-size: 10
       minimum-idle: 5
-      connection-timeout: 30000
+      connection-timeout: 60000
+      initialization-fail-timeout: 60000
       idle-timeout: 600000
       max-lifetime: 1800000
+
+
+      autoconfigure:
+        exclude:
+          - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+          - org.redisson.spring.starter.RedissonAutoConfiguration
 
   # ==========================================
   # FLYWAY - Use same datasource or disable
@@ -320,7 +327,7 @@ spring:
   # ==========================================
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
