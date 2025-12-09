@@ -1,0 +1,11 @@
+demo/target/
+!demo/target/*.jar
+demo/.mvn/
+.git/
+.gitignore
+*.md
+*.log
+*.iml
+.idea/
+.vscode/
+node_modules/

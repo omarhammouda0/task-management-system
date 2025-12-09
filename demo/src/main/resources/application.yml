@@ -273,3 +273,60 @@ app:
     allow-credentials: true
     max-age: 3600
 
+---
+# Railway Production Profile
+spring:
+  config:
+    activate:
+      on-profile: railway
+
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+# MinIO Configuration for Railway
+minio:
+  url: ${MINIO_URL}
+  access-key: ${MINIO_ACCESS_KEY}
+  secret-key: ${MINIO_SECRET_KEY}
+  bucket-name: ${MINIO_BUCKET_NAME:task-management-attachments}
+  auto-create-bucket: true
+
+# Attachment Configuration
+attachment:
+  max-file-size: 10485760
+  max-files-per-task: 10
+
+# JWT Configuration
+
+jwt:
+  secret-key: ${JWT_SECRET}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:900000000000000}
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800000}
+  issuer: task-management-system
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.taskmanagement: INFO
