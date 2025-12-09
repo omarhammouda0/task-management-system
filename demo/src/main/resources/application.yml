@@ -301,7 +301,7 @@ spring:
   # DATASOURCE (PostgreSQL) - FIXED
   # ==========================================
   datasource:
-    # ADD "jdbc:" prefix to the URL
+
     url: jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=require&ssl=true
     username: ${PGUSER}
     password: ${PGPASSWORD}
@@ -349,8 +349,7 @@ spring:
   # ==========================================
   # SERVER
   # ==========================================
-  server:
-    port: ${PORT:8080}
+
 
 # ==========================================
 # MINIO Configuration
@@ -370,4 +369,35 @@ jwt:
   access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:900000}
   refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800000}
   issuer: task-management-system
+
+# ==========================================
+# Springdoc / Swagger Configuration
+# ==========================================
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+
+# ==========================================
+# Server Configuration for Railway (HTTPS proxy)
+# ==========================================
+
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
+  tomcat:
+    remoteip:
+      remote-ip-header: x-forwarded-for
+      protocol-header: x-forwarded-proto
+      protocol-header-https-value: https
+
+
+
+
+
+
 
