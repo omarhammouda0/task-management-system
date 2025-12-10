@@ -69,7 +69,7 @@ curl -X POST https://task-management-system-production-db83.up.railway.app/api/a
   -H "Content-Type: application/json" \
   -d '{
     "email": "test@example.com",
-    "password": "Test123!",
+    "password": "Test12345!",
     "firstName": "Test",
     "lastName": "User"
   }'
@@ -81,7 +81,7 @@ curl -X POST https://task-management-system-production-db83.up.railway.app/api/a
   -H "Content-Type: application/json" \
   -d '{
     "email": "test@example.com",
-    "password": "Test123!"
+    "password": "Test12345!"
   }'
 ```
 
