@@ -40,7 +40,7 @@ public class TaskServiceImplementation implements TaskService {
         String taskTitle = dto.title().trim();
         securityHelper.validateTaskTitleNotExists(taskTitle, project.getId());
 
-        // Handle optional assignee
+
         var assignee = dto.assignedTo() != null ?
                 securityHelper.userExistsAndActiveCheck(dto.assignedTo()) : null;
 

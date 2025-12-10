@@ -9,6 +9,7 @@ import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
+import org.springdoc.core.customizers.OperationCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -71,5 +72,21 @@ public class OpenApiConfig {
                                         .scheme("bearer")
                                         .bearerFormat("JWT")
                                         .description("Enter your JWT access token obtained from the login endpoint.\n\nExample: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`")));
+    }
+
+    @Bean
+    public OperationCustomizer customizePageableParameter() {
+        return (operation, handlerMethod) -> {
+            if (operation.getParameters() != null) {
+                operation.getParameters().forEach(parameter -> {
+                    if ("sort".equals(parameter.getName())) {
+                        // Set default sort to "createdAt,desc" to avoid internal server error
+                        parameter.setExample("createdAt,desc");
+                        parameter.setDescription("Sorting criteria in the format: property(,asc|desc). Default sort order is descending. Multiple sort criteria are supported. Example: createdAt,desc or createdAt,desc&sort=id,asc");
+                    }
+                });
+            }
+            return operation;
+        };
     }
 }
