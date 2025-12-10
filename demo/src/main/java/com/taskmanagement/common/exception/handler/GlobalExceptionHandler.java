@@ -282,6 +282,123 @@ public class GlobalExceptionHandler {
         return problemDetail;
     }
 
+    @ExceptionHandler(org.springframework.web.bind.MissingServletRequestParameterException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ProblemDetail handleMissingServletRequestParameter(
+            org.springframework.web.bind.MissingServletRequestParameterException ex,
+            WebRequest request) {
+
+        log.warn("Missing request parameter: {}", ex.getMessage());
+
+        String message = String.format("Required parameter '%s' is missing", ex.getParameterName());
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                message
+        );
+        problemDetail.setTitle("Missing Parameter");
+        problemDetail.setProperty("code", "MISSING_PARAMETER");
+        problemDetail.setProperty("parameterName", ex.getParameterName());
+        problemDetail.setProperty("timestamp", Instant.now());
+        problemDetail.setProperty("path", request.getDescription(false).replace("uri=", ""));
+
+        return problemDetail;
+    }
+
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ProblemDetail handleMethodArgumentTypeMismatch(
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex,
+            WebRequest request) {
+
+        log.warn("Type mismatch: {}", ex.getMessage());
+
+        String message = String.format(
+                "Parameter '%s' should be of type '%s' but received '%s'",
+                ex.getName(),
+                ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown",
+                ex.getValue()
+        );
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                message
+        );
+        problemDetail.setTitle("Type Mismatch");
+        problemDetail.setProperty("code", "TYPE_MISMATCH");
+        problemDetail.setProperty("parameterName", ex.getName());
+        problemDetail.setProperty("expectedType", ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown");
+        problemDetail.setProperty("timestamp", Instant.now());
+        problemDetail.setProperty("path", request.getDescription(false).replace("uri=", ""));
+
+        return problemDetail;
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ProblemDetail handleDataIntegrityViolation(
+            org.springframework.dao.DataIntegrityViolationException ex,
+            WebRequest request) {
+
+        log.error("Data integrity violation: {}", ex.getMessage());
+
+        String message = "Data integrity constraint violated";
+        String errorCode = "DATA_INTEGRITY_VIOLATION";
+
+        if (ex.getMessage() != null) {
+            String exMessage = ex.getMessage().toLowerCase();
+
+            if (exMessage.contains("duplicate key") || exMessage.contains("unique constraint")) {
+                message = "A record with this value already exists";
+                errorCode = "DUPLICATE_ENTRY";
+            } else if (exMessage.contains("foreign key")) {
+                message = "Cannot perform operation due to existing relationships";
+                errorCode = "FOREIGN_KEY_VIOLATION";
+            } else if (exMessage.contains("not-null") || exMessage.contains("null")) {
+                message = "Required field cannot be null";
+                errorCode = "NULL_VALUE_NOT_ALLOWED";
+            }
+        }
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                message
+        );
+        problemDetail.setTitle("Data Integrity Violation");
+        problemDetail.setProperty("code", errorCode);
+        problemDetail.setProperty("timestamp", Instant.now());
+        problemDetail.setProperty("path", request.getDescription(false).replace("uri=", ""));
+
+        return problemDetail;
+    }
+
+    @ExceptionHandler(org.springframework.web.servlet.NoHandlerFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ProblemDetail handleNoHandlerFound(
+            org.springframework.web.servlet.NoHandlerFoundException ex,
+            WebRequest request) {
+
+        log.warn("Endpoint not found: {} {}", ex.getHttpMethod(), ex.getRequestURL());
+
+        String message = String.format(
+                "No endpoint found for %s %s",
+                ex.getHttpMethod(),
+                ex.getRequestURL()
+        );
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND,
+                message
+        );
+        problemDetail.setTitle("Endpoint Not Found");
+        problemDetail.setProperty("code", "ENDPOINT_NOT_FOUND");
+        problemDetail.setProperty("method", ex.getHttpMethod());
+        problemDetail.setProperty("timestamp", Instant.now());
+        problemDetail.setProperty("path", request.getDescription(false).replace("uri=", ""));
+
+        return problemDetail;
+    }
+
 
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)

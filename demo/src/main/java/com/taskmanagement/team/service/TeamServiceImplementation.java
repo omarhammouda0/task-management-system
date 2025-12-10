@@ -54,6 +54,7 @@ public class TeamServiceImplementation implements TeamService {
 
         var toSave = teamMapper.toEntity ( teamCreateDto );
         toSave.setOwnerId ( currentUser.getId ( ) );
+        toSave.setOwner (  currentUser );
 
         teamRepository.save ( toSave );
 
