@@ -15,8 +15,6 @@ public class TeamMapper {
 
                 .name ( dto.name ( ).trim ( ) )
                 .description ( dto.description ( ) == null ? null : dto.description ( ).trim ( ) )
-                // OwnerId should be set in the service layer based on the authenticated user
-                // Hence, I am not setting it here in the mapper
                 .status ( TeamStatus.ACTIVE )
 
                 .build ( );

@@ -16,6 +16,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.ErrorResponse;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -25,6 +26,8 @@ import org.springframework.web.context.request.WebRequest;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -344,19 +347,48 @@ public class GlobalExceptionHandler {
 
         String message = "Data integrity constraint violated";
         String errorCode = "DATA_INTEGRITY_VIOLATION";
+        String field = null;
+        String constraintName = null;
 
-        if (ex.getMessage() != null) {
-            String exMessage = ex.getMessage().toLowerCase();
+        // Get the root cause which contains more details
+        Throwable rootCause = ex.getRootCause();
+        String exMessage = rootCause != null ? rootCause.getMessage() : ex.getMessage();
 
-            if (exMessage.contains("duplicate key") || exMessage.contains("unique constraint")) {
+        if (exMessage != null) {
+            String lowerMessage = exMessage.toLowerCase();
+
+            if (lowerMessage.contains("duplicate key") || lowerMessage.contains("unique constraint")) {
                 message = "A record with this value already exists";
                 errorCode = "DUPLICATE_ENTRY";
-            } else if (exMessage.contains("foreign key")) {
+
+                // Extract field name from constraint
+                field = extractFieldFromUniqueConstraint(exMessage);
+                constraintName = extractConstraintName(exMessage, "unique");
+
+                if (field != null) {
+                    message = String.format("A record with this %s already exists", field);
+                }
+
+            } else if (lowerMessage.contains("foreign key")) {
                 message = "Cannot perform operation due to existing relationships";
                 errorCode = "FOREIGN_KEY_VIOLATION";
-            } else if (exMessage.contains("not-null") || exMessage.contains("null")) {
+
+                field = extractFieldFromForeignKeyConstraint(exMessage);
+                constraintName = extractConstraintName(exMessage, "foreign key");
+
+                if (field != null) {
+                    message = String.format("Invalid reference: %s does not exist or is still being referenced", field);
+                }
+
+            } else if (lowerMessage.contains("not-null") || lowerMessage.contains("null")) {
                 message = "Required field cannot be null";
                 errorCode = "NULL_VALUE_NOT_ALLOWED";
+
+                field = extractFieldFromNotNullConstraint(exMessage);
+
+                if (field != null) {
+                    message = String.format("Required field '%s' cannot be null", field);
+                }
             }
         }
 
@@ -366,10 +398,78 @@ public class GlobalExceptionHandler {
         );
         problemDetail.setTitle("Data Integrity Violation");
         problemDetail.setProperty("code", errorCode);
+
+        if (field != null) {
+            problemDetail.setProperty("field", field);
+        }
+
+        if (constraintName != null) {
+            problemDetail.setProperty("constraint", constraintName);
+        }
+
         problemDetail.setProperty("timestamp", Instant.now());
         problemDetail.setProperty("path", request.getDescription(false).replace("uri=", ""));
 
         return problemDetail;
+    }
+
+
+    private String extractFieldFromUniqueConstraint(String message) {
+
+        Pattern pgPattern = Pattern.compile("Key \\(([^)]+)\\)=");
+        Matcher pgMatcher = pgPattern.matcher(message);
+        if (pgMatcher.find()) {
+            return pgMatcher.group(1).trim();
+        }
+
+        // Try MySQL format
+        Pattern mysqlPattern = Pattern.compile("for key '[^']*\\.([^']+)'");
+        Matcher mysqlMatcher = mysqlPattern.matcher(message);
+        if (mysqlMatcher.find()) {
+            return mysqlMatcher.group(1).trim();
+        }
+
+        return null;
+    }
+
+    private String extractFieldFromForeignKeyConstraint(String message) {
+
+        Pattern pgPattern = Pattern.compile("Key \\(([^)]+)\\)=");
+        Matcher pgMatcher = pgPattern.matcher(message);
+        if (pgMatcher.find()) {
+            return pgMatcher.group(1).trim();
+        }
+
+
+        Pattern fkPattern = Pattern.compile("fk_\\w+_([a-z_]+)");
+        Matcher fkMatcher = fkPattern.matcher(message.toLowerCase());
+        if (fkMatcher.find()) {
+            return fkMatcher.group(1).replace("_", " ");
+        }
+
+        return null;
+    }
+
+    private String extractFieldFromNotNullConstraint(String message) {
+
+        Pattern pattern = Pattern.compile("column ['\"]([^'\"]+)['\"]");
+        Matcher matcher = pattern.matcher(message.toLowerCase());
+        if (matcher.find()) {
+            return matcher.group(1).trim();
+        }
+
+        return null;
+    }
+
+    private String extractConstraintName(String message, String type) {
+        // Extract constraint name for debugging purposes
+        Pattern pattern = Pattern.compile("constraint ['\"]([^'\"]+)['\"]");
+        Matcher matcher = pattern.matcher(message.toLowerCase());
+        if (matcher.find()) {
+            return matcher.group(1).trim();
+        }
+
+        return null;
     }
 
     @ExceptionHandler(org.springframework.web.servlet.NoHandlerFoundException.class)
@@ -393,6 +493,33 @@ public class GlobalExceptionHandler {
         problemDetail.setTitle("Endpoint Not Found");
         problemDetail.setProperty("code", "ENDPOINT_NOT_FOUND");
         problemDetail.setProperty("method", ex.getHttpMethod());
+        problemDetail.setProperty("timestamp", Instant.now());
+        problemDetail.setProperty("path", request.getDescription(false).replace("uri=", ""));
+
+        return problemDetail;
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    @ResponseStatus(HttpStatus.METHOD_NOT_ALLOWED)
+    public ProblemDetail handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException ex,
+            WebRequest request) {
+
+        log.warn("Method not allowed: {}", ex.getMessage());
+
+        String message = String.format(
+                "HTTP method '%s' is not supported for this endpoint. Supported methods: %s",
+                ex.getMethod(),
+                String.join(", ", ex.getSupportedMethods())
+        );
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.METHOD_NOT_ALLOWED,
+                message
+        );
+        problemDetail.setTitle("Method Not Allowed");
+        problemDetail.setProperty("code", "METHOD_NOT_ALLOWED");
+        problemDetail.setProperty("allowedMethods", ex.getSupportedMethods());
         problemDetail.setProperty("timestamp", Instant.now());
         problemDetail.setProperty("path", request.getDescription(false).replace("uri=", ""));
 

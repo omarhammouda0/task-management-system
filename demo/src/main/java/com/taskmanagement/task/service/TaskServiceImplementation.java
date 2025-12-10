@@ -40,13 +40,15 @@ public class TaskServiceImplementation implements TaskService {
         String taskTitle = dto.title().trim();
         securityHelper.validateTaskTitleNotExists(taskTitle, project.getId());
 
-        if (dto.assignedTo() != null) {
-            var assignee = securityHelper.userExistsAndActiveCheck(dto.assignedTo());
+        // Handle optional assignee
+        var assignee = dto.assignedTo() != null ?
+                securityHelper.userExistsAndActiveCheck(dto.assignedTo()) : null;
+
+        if (assignee != null) {
             securityHelper.canAssignTask(currentUser, project.getId(), assignee.getId());
         }
 
-        var task = taskMapper.toEntity(dto);
-        task.setCreatedBy(currentUser.getId());
+        var task = taskMapper.toEntity(dto, project, assignee);
 
         var savedTask = taskRepository.save(task);
 
@@ -127,8 +129,8 @@ public class TaskServiceImplementation implements TaskService {
             }
             securityHelper.validateTaskTitleNotExistsForUpdate(
                     trimmedTitle,
-                    task.getProjectId(),
-                    taskId
+                    task.getProjectIdSafe(),
+                    task.getId()
             );
         }
 
@@ -137,7 +139,6 @@ public class TaskServiceImplementation implements TaskService {
         }
 
         taskMapper.updateEntityFromDto ( dto, task);
-        task.setUpdatedBy(currentUser.getId());
 
         var updatedTask = taskRepository.save(task);
 
@@ -168,7 +169,6 @@ public class TaskServiceImplementation implements TaskService {
 
         var oldStatus = task.getStatus();
         task.setStatus(TaskStatus.DELETED);
-        task.setUpdatedBy(currentUser.getId());
 
         taskRepository.save(task);
 
@@ -193,11 +193,12 @@ public class TaskServiceImplementation implements TaskService {
 
         var assignee = securityHelper.userExistsAndActiveCheck(dto.userId());
 
-        securityHelper.canAssignTask(currentUser, task.getProjectId(), assignee.getId());
+        // Get projectId safely from JPA relationship
+        Long projectId = task.getProjectIdSafe();
+        securityHelper.canAssignTask(currentUser, projectId, assignee.getId());
 
-        var previousAssignee = task.getAssignedTo();
-        task.setAssignedTo(assignee.getId());
-        task.setUpdatedBy(currentUser.getId());
+        var previousAssignee = task.getAssignedUser();
+        task.setAssignedUser(assignee);
 
         var updatedTask = taskRepository.save(task);
 
@@ -212,7 +213,7 @@ public class TaskServiceImplementation implements TaskService {
             log.info("Task '{}' (ID: {}) reassigned from user {} to user {} by user {} (ID: {})",
                     updatedTask.getTitle(),
                     updatedTask.getId(),
-                    previousAssignee,
+                    previousAssignee.getEmail(),
                     assignee.getEmail(),
                     currentUser.getEmail(),
                     currentUser.getId());
@@ -231,22 +232,21 @@ public class TaskServiceImplementation implements TaskService {
 
         var task = securityHelper.taskExistsAndNotDeletedCheck(taskId);
 
-        if (task.getAssignedTo() == null) {
+        if (task.getAssignedUser() == null) {
             throw new IllegalStateException("Task is already unassigned");
         }
 
         securityHelper.canModifyTask(currentUser, task);
 
-        var previousAssignee = task.getAssignedTo();
-        task.setAssignedTo(null);
-        task.setUpdatedBy(currentUser.getId());
+        var previousAssignee = task.getAssignedUser();
+        task.setAssignedUser(null);
 
         var updatedTask = taskRepository.save(task);
 
         log.info("Task '{}' (ID: {}) unassigned from user {} by user {} (ID: {})",
                 updatedTask.getTitle(),
                 updatedTask.getId(),
-                previousAssignee,
+                previousAssignee.getEmail(),
                 currentUser.getEmail(),
                 currentUser.getId());
 

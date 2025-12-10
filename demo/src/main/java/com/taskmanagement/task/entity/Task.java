@@ -54,4 +54,18 @@ public class Task extends BaseEntity {
     private Instant completedAt;
 
 
+    public Long getProjectIdSafe() {
+        if (projectId != null) {
+            return projectId;
+        }
+        return project != null ? project.getId() : null;
+    }
+
+
+    public Long getAssignedToSafe() {
+        if (assignedTo != null) {
+            return assignedTo;
+        }
+        return assignedUser != null ? assignedUser.getId() : null;
+    }
 }

@@ -125,7 +125,7 @@ public class SecurityHelper {
             return;
         }
 
-        var project = projectExistsAndNotDeletedCheck(task.getProjectId());
+        var project = projectExistsAndNotDeletedCheck(task.getProjectIdSafe());
 
         if (!teamMemberRepository.existsByTeamIdAndUserId(project.getTeamId(), user.getId())) {
             throw new AccessDeniedException("You must be a team member to access this task");
@@ -137,7 +137,7 @@ public class SecurityHelper {
             return;
         }
 
-        var project = projectExistsAndNotDeletedCheck(task.getProjectId());
+        var project = projectExistsAndNotDeletedCheck(task.getProjectIdSafe());
 
         if (teamMemberRepository.existsByTeamIdAndUserIdAndRoleIn(
                 project.getTeamId(),
@@ -146,7 +146,7 @@ public class SecurityHelper {
             return;
         }
 
-        if (task.getAssignedTo() != null && task.getAssignedTo().equals(user.getId())) {
+        if (task.getAssignedToSafe() != null && task.getAssignedToSafe().equals(user.getId())) {
             return;
         }
 
@@ -158,7 +158,7 @@ public class SecurityHelper {
             return;
         }
 
-        var project = projectExistsAndNotDeletedCheck(task.getProjectId());
+        var project = projectExistsAndNotDeletedCheck(task.getProjectIdSafe());
 
         if (teamMemberRepository.existsByTeamIdAndUserIdAndRoleIn(
                 project.getTeamId(),

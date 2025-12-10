@@ -30,31 +30,30 @@ public class TeamMemberServiceImplementation implements TeamMemberService {
 
     @Override
     @Transactional
-
     public TeamMemberResponseDto addMember(AddMemberRequestDto dto) {
 
-        Objects.requireNonNull(dto , "The new member must not be null");
+        Objects.requireNonNull(dto, "The new member must not be null");
 
         var currentUser = securityHelper.getCurrentUser();
         securityHelper.isUserActive(currentUser);
 
-        var currentUserTeam = securityHelper.teamExistsAndActiveCheck ( dto.teamId ( ) );
-        var userToAdd = securityHelper.userExistsAndActiveCheck ( dto.userId ( ) );
+        var team = securityHelper.teamExistsAndActiveCheck(dto.teamId());
+        var userToAdd = securityHelper.userExistsAndActiveCheck(dto.userId());
 
-        if (! securityHelper.isOwner ( currentUser.getId () , currentUserTeam.getId () ) )
-            throw new  AccessDeniedException ( "Only team owner can add new members " );
+        if (!securityHelper.isOwner(currentUser.getId(), team.getId()))
+            throw new AccessDeniedException("Only team owner can add new members");
 
-        if ( securityHelper.isMemberInTeam (  dto.teamId ( ) , userToAdd ) )
-            throw new UserAlreadyInTeamException ( userToAdd.getId () , dto.teamId ( ) );
+        if (securityHelper.isMemberInTeam(dto.teamId(), userToAdd))
+            throw new UserAlreadyInTeamException(userToAdd.getId(), dto.teamId());
 
-        var toSaveMember = teamMemberMapper.toEntity ( dto );
-        var savedMember =  teamMemberRepository.save ( toSaveMember );
+        var toSaveMember = teamMemberMapper.toEntity(dto, team, userToAdd);
+        toSaveMember.setCreatedBy(currentUser.getId());
+        var savedMember = teamMemberRepository.save(toSaveMember);
 
         log.info("User {} added user {} to team {} with role {}",
                 currentUser.getId(), userToAdd.getId(), dto.teamId(), dto.role());
 
-        return teamMemberMapper.toDto ( savedMember , userToAdd );
-
+        return teamMemberMapper.toDto(savedMember, userToAdd);
     }
 
 
@@ -115,19 +114,20 @@ public class TeamMemberServiceImplementation implements TeamMemberService {
             throw new AccessDeniedException ( "Team owner cannot update their own role," +
                     " please contact an admin " );
 
-        securityHelper.roleTransitionValidation (team.getId (),memberToUpdate.getRole (),dto.newRole ( ) );
+        securityHelper.roleTransitionValidation(team.getId(), memberToUpdate.getRole(), dto.newRole());
 
-        var oldRole = memberToUpdate.getRole ();
+        var oldRole = memberToUpdate.getRole();
 
-        memberToUpdate.setRole ( dto.newRole ( ) );
-        var updatedMember = teamMemberRepository.save ( memberToUpdate );
+        memberToUpdate.setRole(dto.newRole());
+        var updatedMember = teamMemberRepository.save(memberToUpdate);
 
         log.info("User {} updated role of user {} in team {} from {} to {}",
-                currentUser.getId(), dto.memberId (), dto.teamId (), oldRole, dto.newRole () );
+                currentUser.getId(), dto.memberId(), dto.teamId(), oldRole, dto.newRole());
 
-        var user = securityHelper.getUserById (  memberToUpdate.getUserId () );
 
-        return teamMemberMapper.toDto ( updatedMember , user );
+        var user = updatedMember.getUser();
+
+        return teamMemberMapper.toDto(updatedMember, user);
 
 
     }
@@ -170,50 +170,43 @@ public class TeamMemberServiceImplementation implements TeamMemberService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<TeamMemberResponseDto> getMembersByTeam(Long teamId , Pageable pageable) {
+    public Page<TeamMemberResponseDto> getMembersByTeam(Long teamId, Pageable pageable) {
 
-        var currentUser = securityHelper.getCurrentUser ( );
-        securityHelper.isUserActive ( currentUser );
+        var currentUser = securityHelper.getCurrentUser();
+        securityHelper.isUserActive(currentUser);
 
-        var team = securityHelper.teamExistsAndActiveCheck ( teamId );
+        securityHelper.teamExistsAndActiveCheck(teamId);
 
-        if (currentUser.getRole ( ) != Role.ADMIN &&
-                !securityHelper.isTeamOwnerOrAdmin ( teamId , currentUser.getId ( ) ))
+        if (currentUser.getRole() != Role.ADMIN &&
+                !securityHelper.isTeamOwnerOrAdmin(teamId, currentUser.getId()))
+            throw new AccessDeniedException("Only team owner or admins can view members");
 
-            throw new AccessDeniedException ( "Only team owner or admins can view members " );
-
-        return teamMemberRepository.findByTeamIdAndStatusActive ( teamId , pageable )
-                .map ( teamMember -> teamMemberMapper.toDto
-                        ( teamMember , securityHelper.getUserById ( teamMember.getUserId ( ) ) ) );
-
+        return teamMemberRepository.findByTeamIdAndStatusActive(teamId, pageable)
+                .map(teamMemberMapper::toDto);
     }
 
     @Override
-    @Transactional (readOnly = true)
+    @Transactional(readOnly = true)
+    public TeamMemberResponseDto getMember(Long teamId, Long userId) {
 
-    public TeamMemberResponseDto getMember(Long teamId , Long userId) {
+        Objects.requireNonNull(userId, "The user can not be null");
+        Objects.requireNonNull(teamId, "The team can not be null");
 
-        Objects.requireNonNull ( userId , "The user can not be null" );
-        Objects.requireNonNull ( teamId , "The team can not be null" );
+        var currentUser = securityHelper.getCurrentUser();
+        securityHelper.isUserActive(currentUser);
 
-        var currentUser = securityHelper.getCurrentUser ( );
-        securityHelper.isUserActive ( currentUser );
+        securityHelper.teamExistsAndActiveCheck(teamId);
 
-        var team = securityHelper.teamExistsAndActiveCheck ( teamId );
+        if (currentUser.getRole() != Role.ADMIN &&
+                !securityHelper.isTeamOwnerOrAdmin(teamId, currentUser.getId()) &&
+                !securityHelper.isSelfOperation(currentUser.getId(), userId))
+            throw new AccessDeniedException("Only team owner, admins or the user themselves can view member details");
 
-            if (currentUser.getRole ()!= Role.ADMIN &&
-                    !securityHelper.isTeamOwnerOrAdmin ( teamId , currentUser.getId () ) &&
-                    !securityHelper.isSelfOperation ( currentUser.getId () , userId ) )
-
-                throw new AccessDeniedException
-                        (  "Only team owner , admins or the user themselves can view member details " );
-
-
-            return teamMemberRepository.findByTeamIdAndUserId ( teamId , userId )
-                    .map ( teamMember -> teamMemberMapper.toDto
-                            (  teamMember , securityHelper.getUserById ( teamMember.getUserId () ) ) )
-                    .orElseThrow ( () -> new UserNotInTeamException ( userId , teamId ) );
+        return teamMemberRepository.findByTeamIdAndUserId(teamId, userId)
+                .map(teamMemberMapper::toDto)
+                .orElseThrow(() -> new UserNotInTeamException(userId, teamId));
     }
+
 
     @Override
     @Transactional(readOnly = true)

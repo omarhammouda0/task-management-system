@@ -31,35 +31,31 @@ public class ProjectServiceImplementation implements ProjectService {
 
     @Override
     @Transactional
-
     public ProjectResponseDto createProject(CreateProjectDto requestDto) {
 
-        Objects.requireNonNull ( requestDto , "The project creation data must not be null" );
+        Objects.requireNonNull(requestDto, "The project creation data must not be null");
 
-        var currentUser = securityHelper.getCurrentUser ( );
-        var team = securityHelper.teamExistsAndActiveCheck ( requestDto.teamId ( ) );
-        String projectName = requestDto.name ( ).trim ( );
+        var currentUser = securityHelper.getCurrentUser();
+        var team = securityHelper.teamExistsAndActiveCheck(requestDto.teamId());
+        String projectName = requestDto.name().trim();
 
-        securityHelper.isUserActive ( currentUser );
-        securityHelper.isOwner ( currentUser.getId ( ) , team.getId ( ) );
-        securityHelper.validateProjectNameNotExists ( projectName , team.getId ( ) );
-        securityHelper.dateValidation ( requestDto.startDate ( ) , requestDto.endDate ( ) );
+        securityHelper.isUserActive(currentUser);
+        securityHelper.isOwner(currentUser.getId(), team.getId());
+        securityHelper.validateProjectNameNotExists(projectName, team.getId());
+        securityHelper.dateValidation(requestDto.startDate(), requestDto.endDate());
 
-        var status = securityHelper.statusValidation ( requestDto.status ( ) );
+        var status = securityHelper.statusValidation(requestDto.status());
 
-        var toSaveProject = projectMapper.toEntity ( requestDto );
+        var toSaveProject = projectMapper.toEntity(requestDto, team);
+        toSaveProject.setStatus(status);
+        toSaveProject.setCreatedBy(currentUser.getId());
 
-        toSaveProject.setStatus ( status );
-        toSaveProject.setCreatedBy ( currentUser.getId ( ) );
+        var savedProject = projectRepository.save(toSaveProject);
 
-        var savedProject = projectRepository.save ( toSaveProject );
+        log.info("Project with id {} created by user with id {}",
+                savedProject.getId(), currentUser.getId());
 
-        log.info ( "Project with id {} created by user with id {}" ,
-                savedProject.getId ( ) , currentUser.getId ( ) );
-
-        return projectMapper.toDto ( savedProject );
-
-
+        return projectMapper.toDto(savedProject);
     }
 
     @Override
@@ -74,10 +70,10 @@ public class ProjectServiceImplementation implements ProjectService {
         var project = securityHelper.projectExistsCheckAndRetrievableCheckUponRole ( currentUser , projectId );
 
         if (!securityHelper.isSystemAdmin ( currentUser )) {
-            securityHelper.teamActiveCheck ( project.getTeamId ( ) );
+            securityHelper.teamActiveCheck ( project.getTeamIdSafe() );
         }
 
-        securityHelper.isMemberInTeamOrSystemAdmin ( project.getTeamId ( ) , currentUser );
+        securityHelper.isMemberInTeamOrSystemAdmin ( project.getTeamIdSafe() , currentUser );
 
         return projectMapper.toDto ( project );
     }
@@ -152,14 +148,14 @@ public class ProjectServiceImplementation implements ProjectService {
 
         var currentUser = securityHelper.getCurrentUser ( );
         var project = securityHelper.projectExistsCheck ( projectId );
-        var team = securityHelper.teamExistsAndActiveCheck ( project.getTeamId ( ) );
+        var team = securityHelper.teamExistsAndActiveCheck ( project.getTeamIdSafe() );
         var newStatus = ProjectStatus.PLANNED;
 
         securityHelper.isUserActive ( currentUser );
         securityHelper.isSystemAdmin ( currentUser );
         securityHelper.validateStatusValidation ( project.getStatus ( ) , newStatus );
         securityHelper.validateProjectNameNotExistsForUpdate ( project.getName ( ) , team.getId ( ) , projectId );
-        securityHelper.teamActiveCheck ( project.getTeamId ( ) );
+        securityHelper.teamActiveCheck ( project.getTeamIdSafe() );
 
         project.setStatus ( newStatus );
         project.setUpdatedBy ( currentUser.getId ( ) );
@@ -184,7 +180,7 @@ public class ProjectServiceImplementation implements ProjectService {
 
         var currentUser = securityHelper.getCurrentUser ( );
         var project = securityHelper.projectExistsCheck ( projectId );
-        var team = securityHelper.teamExistsAndActiveCheck ( project.getTeamId ( ) );
+        var team = securityHelper.teamExistsAndActiveCheck ( project.getTeamIdSafe() );
         var oldStatus = project.getStatus ( );
         var newStatus = ProjectStatus.ACTIVE;
 
@@ -217,7 +213,7 @@ public class ProjectServiceImplementation implements ProjectService {
 
         var currentUser = securityHelper.getCurrentUser ( );
         var project = securityHelper.projectExistsCheck ( projectId );
-        var team = securityHelper.teamExistsAndActiveCheck ( project.getTeamId ( ) );
+        var team = securityHelper.teamExistsAndActiveCheck ( project.getTeamIdSafe() );
         var oldStatus = project.getStatus ( );
         var newStatus = ProjectStatus.ARCHIVED;
 
@@ -242,23 +238,23 @@ public class ProjectServiceImplementation implements ProjectService {
     @Transactional
     public ProjectResponseDto transferProject(Long projectId , Long newTeamId) {
 
-        Objects.requireNonNull ( projectId , "The project id must not be null" );
-        Objects.requireNonNull ( newTeamId , "The new team id must not be null" );
+        Objects.requireNonNull(projectId, "The project id must not be null");
+        Objects.requireNonNull(newTeamId, "The new team id must not be null");
 
-        var currentUser = securityHelper.getCurrentUser ( );
+        var currentUser = securityHelper.getCurrentUser();
 
-        securityHelper.isUserActive ( currentUser );
-        securityHelper.systemAdminCheck ( currentUser );
+        securityHelper.isUserActive(currentUser);
+        securityHelper.systemAdminCheck(currentUser);
 
-        var project = securityHelper.projectExistsAndNotDeletedCheck (  projectId );
-        var oldTeamId = project.getTeamId ( );
+        var project = securityHelper.projectExistsAndNotDeletedCheck(projectId);
+        var oldTeamId = project.getTeamIdSafe();
 
-        securityHelper.isTeamExistingAndActiveCheck (  newTeamId );
-        securityHelper.notSameTeamCheck (  project.getTeamId ( ), newTeamId );
-        securityHelper.validateProjectNameNotExists ( project.getName () , newTeamId );
+        var newTeam = securityHelper.teamExistsAndActiveCheck(newTeamId);
+        securityHelper.notSameTeamCheck(oldTeamId, newTeamId);
+        securityHelper.validateProjectNameNotExists(project.getName(), newTeamId);
 
-        project.setTeamId (  newTeamId );
-        project.setUpdatedBy ( currentUser.getId ( ) );
+        project.setTeam(newTeam);
+        project.setUpdatedBy(currentUser.getId());
 
         var transferredProject = projectRepository.save(project);
 
@@ -270,9 +266,7 @@ public class ProjectServiceImplementation implements ProjectService {
                 oldTeamId,
                 newTeamId);
 
-
-        return  projectMapper.toDto ( project );
-
+        return projectMapper.toDto(transferredProject);
     }
 
 
@@ -297,13 +291,13 @@ public class ProjectServiceImplementation implements ProjectService {
         var project = securityHelper.projectExistsAndNotDeletedCheck ( projectId );
 
         if (!securityHelper.isSystemAdmin ( currentUser ) &&
-                !securityHelper.isTeamOwnerOrTeamAdmin ( currentUser.getId ( ) , project.getTeamId ( ) ))
+                !securityHelper.isTeamOwnerOrTeamAdmin ( currentUser.getId ( ) , project.getTeamIdSafe() ))
 
             throw new AccessDeniedException ( "Access denied:" +
                     " Only system admin , team owner and team admin" +
                     " have permission to update this project." );
 
-        securityHelper.teamActiveCheck ( project.getTeamId ( ) );
+        securityHelper.teamActiveCheck ( project.getTeamIdSafe() );
 
         if (dto.name () != null) {
 
@@ -314,7 +308,7 @@ public class ProjectServiceImplementation implements ProjectService {
             }
             securityHelper.validateProjectNameNotExistsForUpdate(
                     trimmedName,
-                    project.getTeamId(),
+                    project.getTeamIdSafe(),
                     projectId
             );
         }

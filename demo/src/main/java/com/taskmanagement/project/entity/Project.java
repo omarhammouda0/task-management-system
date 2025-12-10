@@ -41,4 +41,10 @@ public class Project extends BaseEntity {
     private Instant endDate;
 
 
+    public Long getTeamIdSafe() {
+        if (teamId != null) {
+            return teamId;
+        }
+        return team != null ? team.getId() : null;
+    }
 }

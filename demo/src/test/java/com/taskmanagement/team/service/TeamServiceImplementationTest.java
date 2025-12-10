@@ -10,9 +10,11 @@ import com.taskmanagement.team.dto.TeamResponseDto;
 import com.taskmanagement.team.dto.TeamUpdateDto;
 import com.taskmanagement.team.entity.Team;
 import com.taskmanagement.team.entity.TeamMember;
+import com.taskmanagement.team.enums.TeamMemberStatus;
 import com.taskmanagement.team.enums.TeamRole;
 import com.taskmanagement.team.enums.TeamStatus;
 import com.taskmanagement.team.mapper.TeamMapper;
+import com.taskmanagement.team.mapper.TeamMemberMapper;
 import com.taskmanagement.team.repository.TeamMemberRepository;
 import com.taskmanagement.team.repository.TeamRepository;
 import com.taskmanagement.user.entity.User;
@@ -64,6 +66,9 @@ class TeamServiceImplementationTest {
 
     @Mock
     private TeamMapper teamMapper;
+
+    @Mock
+    private TeamMemberMapper teamMemberMapper;
 
     @Mock
     private TeamMemberRepository teamMemberRepository;
@@ -141,7 +146,7 @@ class TeamServiceImplementationTest {
         team = Team.builder()
                 .name("Development Team")
                 .description("A team for software development")
-                .ownerId(1L)
+                .owner(activeUser)
                 .status(TeamStatus.ACTIVE)
                 .build();
         team.setId(100L);
@@ -157,11 +162,12 @@ class TeamServiceImplementationTest {
                 Instant.now()
         );
 
-        // Setup team member
+        // Setup team member with proper JPA relationships
         teamMember = TeamMember.builder()
-                .teamId(100L)
-                .userId(1L)
+                .team(team)
+                .user(activeUser)
                 .role(TeamRole.OWNER)
+                .status(TeamMemberStatus.ACTIVE)
                 .joinedAt(Instant.now())
                 .build();
         teamMember.setId(1L);
@@ -224,6 +230,7 @@ class TeamServiceImplementationTest {
                     .thenReturn(false);
             when(teamMapper.toEntity(teamCreateDto)).thenReturn(team);
             when(teamRepository.save(any(Team.class))).thenReturn(team);
+            when(teamMemberMapper.toOwnerEntity(any(Team.class), any(User.class))).thenReturn(teamMember);
             when(teamMemberRepository.save(any(TeamMember.class))).thenReturn(teamMember);
             when(teamMapper.toDto(team)).thenReturn(teamResponseDto);
 
@@ -243,20 +250,22 @@ class TeamServiceImplementationTest {
             verify(teamRepository).existsByNameIgnoreCase(teamCreateDto.name());
             verify(teamMapper).toEntity(teamCreateDto);
             verify(teamRepository).save(any(Team.class));
+            verify(teamMemberMapper).toOwnerEntity(any(Team.class), eq(activeUser));
             verify(teamMemberRepository).save(any(TeamMember.class));
             verify(teamMapper).toDto(team);
 
-            // Verify team owner ID was set
+            // Verify team owner was set
             ArgumentCaptor<Team> teamCaptor = ArgumentCaptor.forClass(Team.class);
             verify(teamRepository).save(teamCaptor.capture());
-            assertThat(teamCaptor.getValue().getOwnerId()).isEqualTo(activeUser.getId());
+            assertThat(teamCaptor.getValue().getOwner()).isEqualTo(activeUser);
 
             // Verify team member was created with correct properties
             ArgumentCaptor<TeamMember> memberCaptor = ArgumentCaptor.forClass(TeamMember.class);
             verify(teamMemberRepository).save(memberCaptor.capture());
             TeamMember savedMember = memberCaptor.getValue();
-            assertThat(savedMember.getTeamId()).isEqualTo(team.getId());
-            assertThat(savedMember.getUserId()).isEqualTo(activeUser.getId());
+            // Check JPA relationships since derived columns (teamId, userId) are null in unit tests
+            assertThat(savedMember.getTeam().getId()).isEqualTo(team.getId());
+            assertThat(savedMember.getUser().getId()).isEqualTo(activeUser.getId());
             assertThat(savedMember.getRole()).isEqualTo(TeamRole.OWNER);
             assertThat(savedMember.getJoinedAt()).isNotNull();
         }
@@ -442,7 +451,7 @@ class TeamServiceImplementationTest {
             Team teamWithNullDescription = Team.builder()
                     .name("New Team")
                     .description(null)
-                    .ownerId(1L)
+                    .owner(activeUser)
                     .status(TeamStatus.ACTIVE)
                     .build();
             teamWithNullDescription.setId(200L);
@@ -463,6 +472,7 @@ class TeamServiceImplementationTest {
                     .thenReturn(false);
             when(teamMapper.toEntity(dtoWithNullDescription)).thenReturn(teamWithNullDescription);
             when(teamRepository.save(any(Team.class))).thenReturn(teamWithNullDescription);
+            when(teamMemberMapper.toOwnerEntity(any(Team.class), any(User.class))).thenReturn(teamMember);
             when(teamMemberRepository.save(any(TeamMember.class))).thenReturn(teamMember);
             when(teamMapper.toDto(teamWithNullDescription)).thenReturn(responseWithNullDescription);
 
@@ -501,6 +511,7 @@ class TeamServiceImplementationTest {
                     .thenReturn(false);
             when(teamMapper.toEntity(teamCreateDto)).thenReturn(team);
             when(teamRepository.save(any(Team.class))).thenReturn(team);
+            when(teamMemberMapper.toOwnerEntity(any(Team.class), any(User.class))).thenReturn(teamMember);
             when(teamMemberRepository.save(any(TeamMember.class))).thenReturn(teamMember);
             when(teamMapper.toDto(team)).thenReturn(teamResponseDto);
 
@@ -527,6 +538,7 @@ class TeamServiceImplementationTest {
                     .thenReturn(false);
             when(teamMapper.toEntity(teamCreateDto)).thenReturn(team);
             when(teamRepository.save(any(Team.class))).thenReturn(team);
+            when(teamMemberMapper.toOwnerEntity(any(Team.class), any(User.class))).thenReturn(teamMember);
             when(teamMemberRepository.save(any(TeamMember.class))).thenReturn(teamMember);
             when(teamMapper.toDto(team)).thenReturn(teamResponseDto);
 
@@ -555,17 +567,18 @@ class TeamServiceImplementationTest {
                     .thenReturn(false);
             when(teamMapper.toEntity(teamCreateDto)).thenReturn(team);
             when(teamRepository.save(any(Team.class))).thenReturn(team);
+            when(teamMemberMapper.toOwnerEntity(any(Team.class), any(User.class))).thenReturn(teamMember);
             when(teamMemberRepository.save(any(TeamMember.class))).thenReturn(teamMember);
             when(teamMapper.toDto(team)).thenReturn(teamResponseDto);
 
             // Act
             teamService.createTeam(teamCreateDto);
 
-            // Assert - verify owner ID was set
+            // Assert - verify owner was set
             ArgumentCaptor<Team> teamCaptor = ArgumentCaptor.forClass(Team.class);
             verify(teamRepository).save(teamCaptor.capture());
             Team capturedTeam = teamCaptor.getValue();
-            assertThat(capturedTeam.getOwnerId()).isEqualTo(activeUser.getId());
+            assertThat(capturedTeam.getOwner()).isEqualTo(activeUser);
         }
 
         @Test
@@ -579,20 +592,16 @@ class TeamServiceImplementationTest {
                     .thenReturn(false);
             when(teamMapper.toEntity(teamCreateDto)).thenReturn(team);
             when(teamRepository.save(any(Team.class))).thenReturn(team);
+            when(teamMemberMapper.toOwnerEntity(any(Team.class), any(User.class))).thenReturn(teamMember);
             when(teamMemberRepository.save(any(TeamMember.class))).thenReturn(teamMember);
             when(teamMapper.toDto(team)).thenReturn(teamResponseDto);
 
             // Act
             teamService.createTeam(teamCreateDto);
 
-            // Assert - verify team member has OWNER role
-            ArgumentCaptor<TeamMember> memberCaptor = ArgumentCaptor.forClass(TeamMember.class);
-            verify(teamMemberRepository).save(memberCaptor.capture());
-            TeamMember capturedMember = memberCaptor.getValue();
-            assertThat(capturedMember.getRole()).isEqualTo(TeamRole.OWNER);
-            assertThat(capturedMember.getUserId()).isEqualTo(activeUser.getId());
-            assertThat(capturedMember.getTeamId()).isEqualTo(team.getId());
-            assertThat(capturedMember.getJoinedAt()).isNotNull().isBeforeOrEqualTo(Instant.now());
+            // Assert - verify team member mapper was called with correct arguments
+            verify(teamMemberMapper).toOwnerEntity(any(Team.class), eq(activeUser));
+            verify(teamMemberRepository).save(any(TeamMember.class));
         }
     }
 
@@ -656,7 +665,7 @@ class TeamServiceImplementationTest {
             Team inactiveTeam = Team.builder()
                     .name("Inactive Team")
                     .description("An inactive team")
-                    .ownerId(1L)
+                    .owner(activeUser)
                     .status(TeamStatus.INACTIVE)
                     .build();
             inactiveTeam.setId(teamId);
@@ -683,7 +692,7 @@ class TeamServiceImplementationTest {
             Team deletedTeam = Team.builder()
                     .name("Deleted Team")
                     .description("A deleted team")
-                    .ownerId(1L)
+                    .owner(activeUser)
                     .status(TeamStatus.DELETED)
                     .build();
             deletedTeam.setId(teamId);
@@ -897,7 +906,7 @@ class TeamServiceImplementationTest {
             Team ownedTeam = Team.builder()
                     .name("Owned Team")
                     .description("Team owned by user")
-                    .ownerId(ownerUser.getId())
+                    .owner(ownerUser)
                     .status(TeamStatus.ACTIVE)
                     .build();
             ownedTeam.setId(teamId);
@@ -1037,7 +1046,7 @@ class TeamServiceImplementationTest {
             Team team1 = Team.builder()
                     .name("Team 1")
                     .description("First team")
-                    .ownerId(1L)
+                    .owner(activeUser)
                     .status(TeamStatus.ACTIVE)
                     .build();
             team1.setId(1L);
@@ -1045,7 +1054,7 @@ class TeamServiceImplementationTest {
             Team team2 = Team.builder()
                     .name("Team 2")
                     .description("Second team")
-                    .ownerId(2L)
+                    .owner(adminUser)
                     .status(TeamStatus.ACTIVE)
                     .build();
             team2.setId(2L);
@@ -1482,7 +1491,7 @@ class TeamServiceImplementationTest {
             Team deletedTeam = Team.builder()
                     .name(teamName)
                     .description("A deleted team")
-                    .ownerId(activeUser.getId())
+                    .owner(activeUser)
                     .status(TeamStatus.DELETED)
                     .build();
             deletedTeam.setId(100L);
@@ -1611,7 +1620,7 @@ class TeamServiceImplementationTest {
             Team deletedTeam = Team.builder()
                     .name("Deleted Team")
                     .description("A deleted team")
-                    .ownerId(ownerUser.getId())
+                    .owner(ownerUser)
                     .status(TeamStatus.DELETED)
                     .build();
             deletedTeam.setId(teamId);
@@ -1672,10 +1681,10 @@ class TeamServiceImplementationTest {
             // Arrange
             Long teamId = team.getId();
             TeamMember member = TeamMember.builder()
-                    .teamId(teamId)
-                    .userId(ownerUser.getId())
+                    .team(team)
+                    .user(ownerUser)
                     .role(TeamRole.OWNER)
-                    .status(com.taskmanagement.team.enums.TeamMemberStatus.ACTIVE)
+                    .status(TeamMemberStatus.ACTIVE)
                     .build();
             member.setId(1L);
 
@@ -1860,11 +1869,19 @@ class TeamServiceImplementationTest {
             // Arrange
             Long teamId = team.getId();
             team.setStatus(TeamStatus.DELETED);
+
+            User memberUser = User.builder()
+                    .email("member@example.com")
+                    .role(Role.MEMBER)
+                    .status(UserStatus.ACTIVE)
+                    .build();
+            memberUser.setId(10L);
+
             TeamMember member = TeamMember.builder()
-                    .teamId(teamId)
-                    .userId(10L)
+                    .team(team)
+                    .user(memberUser)
                     .role(TeamRole.MEMBER)
-                    .status(com.taskmanagement.team.enums.TeamMemberStatus.INACTIVE)
+                    .status(TeamMemberStatus.INACTIVE)
                     .build();
             member.setId(1L);
 
@@ -2041,7 +2058,7 @@ class TeamServiceImplementationTest {
             Long teamId = 100L;
             Team inactiveTeam = Team.builder()
                     .name("Inactive Team")
-                    .ownerId(1L)
+                    .owner(activeUser)
                     .status(TeamStatus.INACTIVE)
                     .build();
             inactiveTeam.setId(teamId);

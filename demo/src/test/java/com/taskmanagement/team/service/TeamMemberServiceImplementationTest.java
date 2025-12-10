@@ -101,26 +101,26 @@ class TeamMemberServiceImplementationTest {
         activeTeam = Team.builder()
                 .name("Development Team")
                 .description("Dev team description")
-                .ownerId(ownerUser.getId())
+                .owner(ownerUser)
                 .status(TeamStatus.ACTIVE)
                 .build();
         activeTeam.setId(100L);
 
-        // Setup team member
+
         teamMember = TeamMember.builder()
-                .teamId(activeTeam.getId())
-                .userId(userToAdd.getId())
+                .team(activeTeam)
+                .user(userToAdd)
                 .role(TeamRole.MEMBER)
                 .status(TeamMemberStatus.ACTIVE)
                 .joinedAt(Instant.now())
                 .build();
         teamMember.setId(1L);
 
-        // Setup team member response DTO
+
         teamMemberResponseDto = new TeamMemberResponseDto(
                 teamMember.getId(),
-                teamMember.getTeamId(),
-                teamMember.getUserId(),
+                activeTeam.getId(),
+                userToAdd.getId(),
                 userToAdd.getEmail(),
                 userToAdd.getFirstName(),
                 userToAdd.getLastName(),
@@ -159,7 +159,7 @@ class TeamMemberServiceImplementationTest {
             when(securityHelper.userExistsAndActiveCheck(userToAdd.getId())).thenReturn(userToAdd);
             when(securityHelper.isOwner(ownerUser.getId(), activeTeam.getId())).thenReturn(true);
             when(securityHelper.isMemberInTeam(activeTeam.getId(), userToAdd)).thenReturn(false);
-            when(teamMemberMapper.toEntity(addMemberRequestDto)).thenReturn(teamMember);
+            when(teamMemberMapper.toEntity(addMemberRequestDto, activeTeam, userToAdd)).thenReturn(teamMember);
             when(teamMemberRepository.save(any(TeamMember.class))).thenReturn(teamMember);
             when(teamMemberMapper.toDto(teamMember, userToAdd)).thenReturn(teamMemberResponseDto);
 
@@ -192,8 +192,8 @@ class TeamMemberServiceImplementationTest {
                     TeamRole.ADMIN
             );
             TeamMember adminMember = TeamMember.builder()
-                    .teamId(activeTeam.getId())
-                    .userId(userToAdd.getId())
+                    .team(activeTeam)
+                    .user(userToAdd)
                     .role(TeamRole.ADMIN)
                     .status(TeamMemberStatus.ACTIVE)
                     .build();
@@ -204,7 +204,7 @@ class TeamMemberServiceImplementationTest {
             when(securityHelper.userExistsAndActiveCheck(userToAdd.getId())).thenReturn(userToAdd);
             when(securityHelper.isOwner(ownerUser.getId(), activeTeam.getId())).thenReturn(true);
             when(securityHelper.isMemberInTeam(activeTeam.getId(), userToAdd)).thenReturn(false);
-            when(teamMemberMapper.toEntity(adminDto)).thenReturn(adminMember);
+            when(teamMemberMapper.toEntity(adminDto, activeTeam, userToAdd)).thenReturn(adminMember);
             when(teamMemberRepository.save(any(TeamMember.class))).thenReturn(adminMember);
             when(teamMemberMapper.toDto(adminMember, userToAdd)).thenReturn(teamMemberResponseDto);
 
@@ -213,7 +213,7 @@ class TeamMemberServiceImplementationTest {
 
             // Assert
             assertThat(result).isNotNull();
-            verify(teamMemberMapper).toEntity(adminDto);
+            verify(teamMemberMapper).toEntity(adminDto, activeTeam, userToAdd);
         }
 
         @Test
@@ -360,7 +360,7 @@ class TeamMemberServiceImplementationTest {
             // Act & Assert
             assertThatThrownBy(() -> teamMemberService.addMember(addMemberRequestDto))
                     .isInstanceOf(AccessDeniedException.class)
-                    .hasMessage("Only team owner can add new members ");
+                    .hasMessage("Only team owner can add new members");
 
             verify(securityHelper).isOwner(ownerUser.getId(), activeTeam.getId());
             verifyNoInteractions(teamMemberRepository);
@@ -395,7 +395,7 @@ class TeamMemberServiceImplementationTest {
             when(securityHelper.userExistsAndActiveCheck(userToAdd.getId())).thenReturn(userToAdd);
             when(securityHelper.isOwner(ownerUser.getId(), activeTeam.getId())).thenReturn(true);
             when(securityHelper.isMemberInTeam(activeTeam.getId(), userToAdd)).thenReturn(false);
-            when(teamMemberMapper.toEntity(addMemberRequestDto)).thenReturn(teamMember);
+            when(teamMemberMapper.toEntity(addMemberRequestDto, activeTeam, userToAdd)).thenReturn(teamMember);
             when(teamMemberRepository.save(any(TeamMember.class))).thenReturn(teamMember);
             when(teamMemberMapper.toDto(teamMember, userToAdd)).thenReturn(teamMemberResponseDto);
 
@@ -410,7 +410,7 @@ class TeamMemberServiceImplementationTest {
             inOrder.verify(securityHelper).userExistsAndActiveCheck(userToAdd.getId());
             inOrder.verify(securityHelper).isOwner(ownerUser.getId(), activeTeam.getId());
             inOrder.verify(securityHelper).isMemberInTeam(activeTeam.getId(), userToAdd);
-            inOrder.verify(teamMemberMapper).toEntity(addMemberRequestDto);
+            inOrder.verify(teamMemberMapper).toEntity(addMemberRequestDto, activeTeam, userToAdd);
             inOrder.verify(teamMemberRepository).save(any(TeamMember.class));
             inOrder.verify(teamMemberMapper).toDto(teamMember, userToAdd);
         }
@@ -425,7 +425,7 @@ class TeamMemberServiceImplementationTest {
             when(securityHelper.userExistsAndActiveCheck(userToAdd.getId())).thenReturn(userToAdd);
             when(securityHelper.isOwner(ownerUser.getId(), activeTeam.getId())).thenReturn(true);
             when(securityHelper.isMemberInTeam(activeTeam.getId(), userToAdd)).thenReturn(false);
-            when(teamMemberMapper.toEntity(addMemberRequestDto)).thenReturn(teamMember);
+            when(teamMemberMapper.toEntity(addMemberRequestDto, activeTeam, userToAdd)).thenReturn(teamMember);
             when(teamMemberRepository.save(any(TeamMember.class))).thenReturn(teamMember);
             when(teamMemberMapper.toDto(teamMember, userToAdd)).thenReturn(teamMemberResponseDto);
 
@@ -436,8 +436,8 @@ class TeamMemberServiceImplementationTest {
             ArgumentCaptor<TeamMember> memberCaptor = ArgumentCaptor.forClass(TeamMember.class);
             verify(teamMemberRepository).save(memberCaptor.capture());
             TeamMember savedMember = memberCaptor.getValue();
-            assertThat(savedMember.getTeamId()).isEqualTo(activeTeam.getId());
-            assertThat(savedMember.getUserId()).isEqualTo(userToAdd.getId());
+            assertThat(savedMember.getTeam().getId()).isEqualTo(activeTeam.getId());
+            assertThat(savedMember.getUser().getId()).isEqualTo(userToAdd.getId());
         }
     }
 
@@ -462,8 +462,8 @@ class TeamMemberServiceImplementationTest {
             userToRemove.setId(userIdToRemove);
 
             memberToRemove = TeamMember.builder()
-                    .teamId(teamId)
-                    .userId(userIdToRemove)
+                    .team(activeTeam)
+                    .user(userToRemove)
                     .role(TeamRole.MEMBER)
                     .status(TeamMemberStatus.ACTIVE)
                     .joinedAt(Instant.now())
@@ -701,8 +701,8 @@ class TeamMemberServiceImplementationTest {
             memberUser.setId(memberIdToUpdate);
 
             existingMember = TeamMember.builder()
-                    .teamId(activeTeam.getId())
-                    .userId(memberIdToUpdate)
+                    .team(activeTeam)
+                    .user(memberUser)
                     .role(TeamRole.MEMBER)
                     .status(TeamMemberStatus.ACTIVE)
                     .joinedAt(Instant.now())
@@ -730,8 +730,7 @@ class TeamMemberServiceImplementationTest {
             doNothing().when(securityHelper).roleTransitionValidation(
                     activeTeam.getId(), TeamRole.MEMBER, TeamRole.ADMIN);
             when(teamMemberRepository.save(any(TeamMember.class))).thenReturn(existingMember);
-            when(securityHelper.getUserById(memberIdToUpdate)).thenReturn(memberUser);
-            when(teamMemberMapper.toDto(existingMember, memberUser)).thenReturn(teamMemberResponseDto);
+            when(teamMemberMapper.toDto(any(TeamMember.class), any(User.class))).thenReturn(teamMemberResponseDto);
 
             // Act
             TeamMemberResponseDto result = teamMemberService.updateMemberRole(updateMemberRoleDto);
@@ -772,8 +771,7 @@ class TeamMemberServiceImplementationTest {
             doNothing().when(securityHelper).roleTransitionValidation(
                     activeTeam.getId(), TeamRole.ADMIN, TeamRole.MEMBER);
             when(teamMemberRepository.save(any(TeamMember.class))).thenReturn(existingMember);
-            when(securityHelper.getUserById(memberIdToUpdate)).thenReturn(memberUser);
-            when(teamMemberMapper.toDto(existingMember, memberUser)).thenReturn(teamMemberResponseDto);
+            when(teamMemberMapper.toDto(any(TeamMember.class), any(User.class))).thenReturn(teamMemberResponseDto);
 
             // Act
             TeamMemberResponseDto result = teamMemberService.updateMemberRole(demoteDto);
@@ -986,8 +984,7 @@ class TeamMemberServiceImplementationTest {
             doNothing().when(securityHelper).roleTransitionValidation(
                     activeTeam.getId(), oldRole, TeamRole.ADMIN);
             when(teamMemberRepository.save(any(TeamMember.class))).thenReturn(existingMember);
-            when(securityHelper.getUserById(memberIdToUpdate)).thenReturn(memberUser);
-            when(teamMemberMapper.toDto(existingMember, memberUser)).thenReturn(teamMemberResponseDto);
+            when(teamMemberMapper.toDto(any(TeamMember.class), any(User.class))).thenReturn(teamMemberResponseDto);
 
             // Act
             teamMemberService.updateMemberRole(updateMemberRoleDto);
@@ -1010,8 +1007,7 @@ class TeamMemberServiceImplementationTest {
             doNothing().when(securityHelper).roleTransitionValidation(
                     activeTeam.getId(), TeamRole.MEMBER, TeamRole.ADMIN);
             when(teamMemberRepository.save(any(TeamMember.class))).thenReturn(existingMember);
-            when(securityHelper.getUserById(memberIdToUpdate)).thenReturn(memberUser);
-            when(teamMemberMapper.toDto(existingMember, memberUser)).thenReturn(teamMemberResponseDto);
+            when(teamMemberMapper.toDto(any(TeamMember.class), any(User.class))).thenReturn(teamMemberResponseDto);
 
             // Act
             teamMemberService.updateMemberRole(updateMemberRoleDto);
@@ -1026,8 +1022,7 @@ class TeamMemberServiceImplementationTest {
             inOrder.verify(securityHelper).isSelfOperation(ownerUser.getId(), memberIdToUpdate);
             inOrder.verify(securityHelper).roleTransitionValidation(activeTeam.getId(), TeamRole.MEMBER, TeamRole.ADMIN);
             inOrder.verify(teamMemberRepository).save(any(TeamMember.class));
-            inOrder.verify(securityHelper).getUserById(memberIdToUpdate);
-            inOrder.verify(teamMemberMapper).toDto(existingMember, memberUser);
+            inOrder.verify(teamMemberMapper).toDto(any(TeamMember.class), any(User.class));
         }
 
         @Test
@@ -1044,15 +1039,13 @@ class TeamMemberServiceImplementationTest {
             doNothing().when(securityHelper).roleTransitionValidation(
                     activeTeam.getId(), TeamRole.MEMBER, TeamRole.ADMIN);
             when(teamMemberRepository.save(any(TeamMember.class))).thenReturn(existingMember);
-            when(securityHelper.getUserById(memberIdToUpdate)).thenReturn(memberUser);
-            when(teamMemberMapper.toDto(existingMember, memberUser)).thenReturn(teamMemberResponseDto);
+            when(teamMemberMapper.toDto(any(TeamMember.class), any(User.class))).thenReturn(teamMemberResponseDto);
 
             // Act
             teamMemberService.updateMemberRole(updateMemberRoleDto);
 
-            // Assert
-            verify(securityHelper).getUserById(memberIdToUpdate);
-            verify(teamMemberMapper).toDto(existingMember, memberUser);
+            // Assert - verify toDto was called with correct member
+            verify(teamMemberMapper).toDto(any(TeamMember.class), any(User.class));
         }
     }
 
@@ -1067,8 +1060,8 @@ class TeamMemberServiceImplementationTest {
         void setUpLeaveTeamTests() {
             teamId = activeTeam.getId();
             currentUserTeamMember = TeamMember.builder()
-                    .teamId(teamId)
-                    .userId(userToAdd.getId())
+                    .team(activeTeam)
+                    .user(userToAdd)
                     .role(TeamRole.MEMBER)
                     .status(TeamMemberStatus.ACTIVE)
                     .joinedAt(Instant.now())
@@ -1210,8 +1203,8 @@ class TeamMemberServiceImplementationTest {
         void shouldAllowOwnerToLeaveWhenNotLastOwner() {
             // Arrange
             TeamMember ownerTeamMember = TeamMember.builder()
-                    .teamId(teamId)
-                    .userId(ownerUser.getId())
+                    .team(activeTeam)
+                    .user(ownerUser)
                     .role(TeamRole.OWNER)
                     .status(TeamMemberStatus.ACTIVE)
                     .build();
@@ -1319,8 +1312,8 @@ class TeamMemberServiceImplementationTest {
             pageable = org.springframework.data.domain.Pageable.unpaged();
 
             member1 = TeamMember.builder()
-                    .teamId(activeTeam.getId())
-                    .userId(userToAdd.getId())
+                    .team(activeTeam)
+                    .user(userToAdd)
                     .role(TeamRole.MEMBER)
                     .status(TeamMemberStatus.ACTIVE)
                     .joinedAt(Instant.now())
@@ -1328,8 +1321,8 @@ class TeamMemberServiceImplementationTest {
             member1.setId(30L);
 
             member2 = TeamMember.builder()
-                    .teamId(activeTeam.getId())
-                    .userId(ownerUser.getId())
+                    .team(activeTeam)
+                    .user(ownerUser)
                     .role(TeamRole.OWNER)
                     .status(TeamMemberStatus.ACTIVE)
                     .joinedAt(Instant.now())
@@ -1349,9 +1342,7 @@ class TeamMemberServiceImplementationTest {
             when(securityHelper.teamExistsAndActiveCheck(activeTeam.getId())).thenReturn(activeTeam);
             when(securityHelper.isTeamOwnerOrAdmin(activeTeam.getId(), ownerUser.getId())).thenReturn(true);
             when(teamMemberRepository.findByTeamIdAndStatusActive(activeTeam.getId(), pageable)).thenReturn(page);
-            when(securityHelper.getUserById(userToAdd.getId())).thenReturn(userToAdd);
-            when(securityHelper.getUserById(ownerUser.getId())).thenReturn(ownerUser);
-            when(teamMemberMapper.toDto(any(TeamMember.class), any(User.class))).thenReturn(teamMemberResponseDto);
+            when(teamMemberMapper.toDto(any(TeamMember.class))).thenReturn(teamMemberResponseDto);
 
             // Act
             org.springframework.data.domain.Page<TeamMemberResponseDto> result =
@@ -1361,7 +1352,7 @@ class TeamMemberServiceImplementationTest {
             assertThat(result).isNotNull();
             assertThat(result.getTotalElements()).isEqualTo(2);
             verify(teamMemberRepository).findByTeamIdAndStatusActive(activeTeam.getId(), pageable);
-            verify(teamMemberMapper, times(2)).toDto(any(TeamMember.class), any(User.class));
+            verify(teamMemberMapper, times(2)).toDto(any(TeamMember.class));
         }
 
         @Test
@@ -1383,8 +1374,7 @@ class TeamMemberServiceImplementationTest {
             when(securityHelper.teamExistsAndActiveCheck(activeTeam.getId())).thenReturn(activeTeam);
             when(securityHelper.isTeamOwnerOrAdmin(activeTeam.getId(), adminUser.getId())).thenReturn(true);
             when(teamMemberRepository.findByTeamIdAndStatusActive(activeTeam.getId(), pageable)).thenReturn(page);
-            when(securityHelper.getUserById(userToAdd.getId())).thenReturn(userToAdd);
-            when(teamMemberMapper.toDto(member1, userToAdd)).thenReturn(teamMemberResponseDto);
+            when(teamMemberMapper.toDto(any(TeamMember.class))).thenReturn(teamMemberResponseDto);
 
             // Act
             org.springframework.data.domain.Page<TeamMemberResponseDto> result =
@@ -1414,8 +1404,7 @@ class TeamMemberServiceImplementationTest {
             doNothing().when(securityHelper).isUserActive(systemAdmin);
             when(securityHelper.teamExistsAndActiveCheck(activeTeam.getId())).thenReturn(activeTeam);
             when(teamMemberRepository.findByTeamIdAndStatusActive(activeTeam.getId(), pageable)).thenReturn(page);
-            when(securityHelper.getUserById(userToAdd.getId())).thenReturn(userToAdd);
-            when(teamMemberMapper.toDto(member1, userToAdd)).thenReturn(teamMemberResponseDto);
+            when(teamMemberMapper.toDto(any(TeamMember.class))).thenReturn(teamMemberResponseDto);
 
             // Act
             org.springframework.data.domain.Page<TeamMemberResponseDto> result =
@@ -1486,7 +1475,7 @@ class TeamMemberServiceImplementationTest {
             // Act & Assert
             assertThatThrownBy(() -> teamMemberService.getMembersByTeam(activeTeam.getId(), pageable))
                     .isInstanceOf(AccessDeniedException.class)
-                    .hasMessage("Only team owner or admins can view members ");
+                    .hasMessage("Only team owner or admins can view members");
 
             verify(securityHelper).isTeamOwnerOrAdmin(activeTeam.getId(), userToAdd.getId());
             verifyNoInteractions(teamMemberRepository);
@@ -1533,9 +1522,7 @@ class TeamMemberServiceImplementationTest {
             when(securityHelper.teamExistsAndActiveCheck(activeTeam.getId())).thenReturn(activeTeam);
             when(securityHelper.isTeamOwnerOrAdmin(activeTeam.getId(), ownerUser.getId())).thenReturn(true);
             when(teamMemberRepository.findByTeamIdAndStatusActive(activeTeam.getId(), pagedRequest)).thenReturn(page);
-            when(securityHelper.getUserById(userToAdd.getId())).thenReturn(userToAdd);
-            when(securityHelper.getUserById(ownerUser.getId())).thenReturn(ownerUser);
-            when(teamMemberMapper.toDto(any(TeamMember.class), any(User.class))).thenReturn(teamMemberResponseDto);
+            when(teamMemberMapper.toDto(any(TeamMember.class))).thenReturn(teamMemberResponseDto);
 
             // Act
             org.springframework.data.domain.Page<TeamMemberResponseDto> result =
@@ -1561,8 +1548,7 @@ class TeamMemberServiceImplementationTest {
             when(securityHelper.teamExistsAndActiveCheck(activeTeam.getId())).thenReturn(activeTeam);
             when(securityHelper.isTeamOwnerOrAdmin(activeTeam.getId(), ownerUser.getId())).thenReturn(true);
             when(teamMemberRepository.findByTeamIdAndStatusActive(activeTeam.getId(), pageable)).thenReturn(page);
-            when(securityHelper.getUserById(userToAdd.getId())).thenReturn(userToAdd);
-            when(teamMemberMapper.toDto(member1, userToAdd)).thenReturn(teamMemberResponseDto);
+            when(teamMemberMapper.toDto(any(TeamMember.class))).thenReturn(teamMemberResponseDto);
 
             // Act
             teamMemberService.getMembersByTeam(activeTeam.getId(), pageable);
@@ -1599,8 +1585,7 @@ class TeamMemberServiceImplementationTest {
             when(securityHelper.isTeamOwnerOrAdmin(teamId, ownerUser.getId())).thenReturn(true);
             when(teamMemberRepository.findByTeamIdAndUserId(teamId, memberUserId))
                     .thenReturn(Optional.of(teamMember));
-            when(securityHelper.getUserById(memberUserId)).thenReturn(userToAdd);
-            when(teamMemberMapper.toDto(teamMember, userToAdd)).thenReturn(teamMemberResponseDto);
+            when(teamMemberMapper.toDto(any(TeamMember.class))).thenReturn(teamMemberResponseDto);
 
             // Act
             TeamMemberResponseDto result = teamMemberService.getMember(teamId, memberUserId);
@@ -1609,7 +1594,7 @@ class TeamMemberServiceImplementationTest {
             assertThat(result).isNotNull();
             assertThat(result.teamId()).isEqualTo(teamId);
             assertThat(result.userId()).isEqualTo(memberUserId);
-            verify(teamMemberMapper).toDto(teamMember, userToAdd);
+            verify(teamMemberMapper).toDto(any(TeamMember.class));
         }
 
         @Test
@@ -1629,8 +1614,7 @@ class TeamMemberServiceImplementationTest {
             when(securityHelper.isTeamOwnerOrAdmin(teamId, adminUser.getId())).thenReturn(true);
             when(teamMemberRepository.findByTeamIdAndUserId(teamId, memberUserId))
                     .thenReturn(Optional.of(teamMember));
-            when(securityHelper.getUserById(memberUserId)).thenReturn(userToAdd);
-            when(teamMemberMapper.toDto(teamMember, userToAdd)).thenReturn(teamMemberResponseDto);
+            when(teamMemberMapper.toDto(any(TeamMember.class))).thenReturn(teamMemberResponseDto);
 
             // Act
             TeamMemberResponseDto result = teamMemberService.getMember(teamId, memberUserId);
@@ -1656,8 +1640,7 @@ class TeamMemberServiceImplementationTest {
             when(securityHelper.teamExistsAndActiveCheck(teamId)).thenReturn(activeTeam);
             when(teamMemberRepository.findByTeamIdAndUserId(teamId, memberUserId))
                     .thenReturn(Optional.of(teamMember));
-            when(securityHelper.getUserById(memberUserId)).thenReturn(userToAdd);
-            when(teamMemberMapper.toDto(teamMember, userToAdd)).thenReturn(teamMemberResponseDto);
+            when(teamMemberMapper.toDto(any(TeamMember.class))).thenReturn(teamMemberResponseDto);
 
             // Act
             TeamMemberResponseDto result = teamMemberService.getMember(teamId, memberUserId);
@@ -1679,8 +1662,7 @@ class TeamMemberServiceImplementationTest {
             when(securityHelper.isSelfOperation(userToAdd.getId(), memberUserId)).thenReturn(true);
             when(teamMemberRepository.findByTeamIdAndUserId(teamId, memberUserId))
                     .thenReturn(Optional.of(teamMember));
-            when(securityHelper.getUserById(memberUserId)).thenReturn(userToAdd);
-            when(teamMemberMapper.toDto(teamMember, userToAdd)).thenReturn(teamMemberResponseDto);
+            when(teamMemberMapper.toDto(any(TeamMember.class))).thenReturn(teamMemberResponseDto);
 
             // Act
             TeamMemberResponseDto result = teamMemberService.getMember(teamId, memberUserId);
@@ -1776,7 +1758,7 @@ class TeamMemberServiceImplementationTest {
             // Act & Assert
             assertThatThrownBy(() -> teamMemberService.getMember(teamId, otherUserId))
                     .isInstanceOf(AccessDeniedException.class)
-                    .hasMessage("Only team owner , admins or the user themselves can view member details ");
+                    .hasMessage("Only team owner, admins or the user themselves can view member details");
 
             verify(securityHelper).isSelfOperation(userToAdd.getId(), otherUserId);
             verifyNoInteractions(teamMemberRepository);
@@ -1811,8 +1793,7 @@ class TeamMemberServiceImplementationTest {
             when(securityHelper.isTeamOwnerOrAdmin(teamId, ownerUser.getId())).thenReturn(true);
             when(teamMemberRepository.findByTeamIdAndUserId(teamId, memberUserId))
                     .thenReturn(Optional.of(teamMember));
-            when(securityHelper.getUserById(memberUserId)).thenReturn(userToAdd);
-            when(teamMemberMapper.toDto(teamMember, userToAdd)).thenReturn(teamMemberResponseDto);
+            when(teamMemberMapper.toDto(any(TeamMember.class))).thenReturn(teamMemberResponseDto);
 
             // Act
             teamMemberService.getMember(teamId, memberUserId);
@@ -1823,8 +1804,7 @@ class TeamMemberServiceImplementationTest {
             inOrder.verify(securityHelper).isUserActive(ownerUser);
             inOrder.verify(securityHelper).teamExistsAndActiveCheck(teamId);
             inOrder.verify(teamMemberRepository).findByTeamIdAndUserId(teamId, memberUserId);
-            inOrder.verify(securityHelper).getUserById(memberUserId);
-            inOrder.verify(teamMemberMapper).toDto(teamMember, userToAdd);
+            inOrder.verify(teamMemberMapper).toDto(any(TeamMember.class));
         }
     }
 

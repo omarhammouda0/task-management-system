@@ -121,8 +121,8 @@ class TaskServiceImplementationTest {
                 .description("Test Description")
                 .status(TaskStatus.TO_DO)
                 .priority(TaskPriority.MEDIUM)
-                .projectId(1L)
-                .assignedTo(null)
+                .project(activeProject)
+                .assignedUser(null)
                 .dueDate(Instant.now().plusSeconds(86400))
                 .build();
         task.setId(1L);
@@ -191,7 +191,7 @@ class TaskServiceImplementationTest {
             when(securityHelper.projectExistsAndActiveCheck(1L)).thenReturn(activeProject);
             doNothing().when(securityHelper).canCreateTaskInProject(memberUser, 1L);
             doNothing().when(securityHelper).validateTaskTitleNotExists("Test Task", 1L);
-            when(taskMapper.toEntity(createTaskDto)).thenReturn(task);
+            when(taskMapper.toEntity(eq(createTaskDto), eq(activeProject), eq(null))).thenReturn(task);
             when(taskRepository.save(any(Task.class))).thenReturn(task);
             when(taskMapper.toDto(task)).thenReturn(taskResponseDto);
 
@@ -205,6 +205,7 @@ class TaskServiceImplementationTest {
             verify(securityHelper).isUserActive(memberUser);
             verify(securityHelper).projectExistsAndActiveCheck(1L);
             verify(securityHelper).canCreateTaskInProject(memberUser, 1L);
+            verify(taskMapper).toEntity(eq(createTaskDto), eq(activeProject), eq(null));
             verify(taskRepository).save(any(Task.class));
         }
 
@@ -229,7 +230,7 @@ class TaskServiceImplementationTest {
             doNothing().when(securityHelper).validateTaskTitleNotExists("Test Task", 1L);
             when(securityHelper.userExistsAndActiveCheck(3L)).thenReturn(assigneeUser);
             doNothing().when(securityHelper).canAssignTask(memberUser, 1L, 3L);
-            when(taskMapper.toEntity(dtoWithAssignee)).thenReturn(task);
+            when(taskMapper.toEntity(eq(dtoWithAssignee), eq(activeProject), eq(assigneeUser))).thenReturn(task);
             when(taskRepository.save(any(Task.class))).thenReturn(task);
             when(taskMapper.toDto(task)).thenReturn(taskResponseDto);
 
@@ -240,6 +241,7 @@ class TaskServiceImplementationTest {
             assertThat(result).isNotNull();
             verify(securityHelper).userExistsAndActiveCheck(3L);
             verify(securityHelper).canAssignTask(memberUser, 1L, 3L);
+            verify(taskMapper).toEntity(eq(dtoWithAssignee), eq(activeProject), eq(assigneeUser));
         }
 
         @Test
@@ -338,7 +340,7 @@ class TaskServiceImplementationTest {
             when(securityHelper.projectExistsAndActiveCheck(1L)).thenReturn(activeProject);
             doNothing().when(securityHelper).canCreateTaskInProject(memberUser, 1L);
             doNothing().when(securityHelper).validateTaskTitleNotExists("Test Task", 1L);
-            when(taskMapper.toEntity(dtoWithSpaces)).thenReturn(task);
+            when(taskMapper.toEntity(eq(dtoWithSpaces), eq(activeProject), eq(null))).thenReturn(task);
             when(taskRepository.save(any(Task.class))).thenReturn(task);
             when(taskMapper.toDto(task)).thenReturn(taskResponseDto);
 
@@ -545,10 +547,13 @@ class TaskServiceImplementationTest {
     @DisplayName("updateTask() Tests")
     class UpdateTaskTests {
 
+
         @Test
         @DisplayName("Should update task successfully")
         void shouldUpdateTaskSuccessfully() {
             // Given
+            task.setProject(activeProject);
+
             when(securityHelper.getCurrentUser()).thenReturn(memberUser);
             doNothing().when(securityHelper).isUserActive(memberUser);
             when(securityHelper.taskExistsAndNotDeletedCheck(1L)).thenReturn(task);
@@ -579,6 +584,8 @@ class TaskServiceImplementationTest {
                     null
             );
 
+            task.setProject(activeProject); // FIXED: Set the project relationship
+
             when(securityHelper.getCurrentUser()).thenReturn(memberUser);
             doNothing().when(securityHelper).isUserActive(memberUser);
             when(securityHelper.taskExistsAndNotDeletedCheck(1L)).thenReturn(task);
@@ -593,6 +600,8 @@ class TaskServiceImplementationTest {
             // Then
             verify(securityHelper).validateTaskTitleNotExistsForUpdate("New Title", 1L, 1L);
         }
+
+
 
         @Test
         @DisplayName("Should update only status")
@@ -881,7 +890,8 @@ class TaskServiceImplementationTest {
             doNothing().when(securityHelper).canDeleteTask(memberUser, task);
             when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> {
                 Task savedTask = invocation.getArgument(0);
-                assertThat(savedTask.getUpdatedBy()).isEqualTo(memberUser.getId());
+                // Just verify save was called - updatedBy is set by JPA auditing
+                assertThat(savedTask.getStatus()).isEqualTo(TaskStatus.DELETED);
                 return savedTask;
             });
 
@@ -926,7 +936,16 @@ class TaskServiceImplementationTest {
         @DisplayName("Should reassign task successfully")
         void shouldReassignTaskSuccessfully() {
             // Given
-            task.setAssignedTo(2L); // Already assigned to someone else
+            User previousAssignee = User.builder()
+                    .email("previous@example.com")
+                    .firstName("Previous")
+                    .lastName("User")
+                    .role(Role.MEMBER)
+                    .status(UserStatus.ACTIVE)
+                    .build();
+            previousAssignee.setId(2L);
+
+            task.setAssignedUser(previousAssignee);
 
             when(securityHelper.getCurrentUser()).thenReturn(memberUser);
             doNothing().when(securityHelper).isUserActive(memberUser);
@@ -1010,7 +1029,7 @@ class TaskServiceImplementationTest {
         @DisplayName("Should unassign task successfully")
         void shouldUnassignTaskSuccessfully() {
             // Given
-            task.setAssignedTo(3L);
+            task.setAssignedUser(assigneeUser);
 
             when(securityHelper.getCurrentUser()).thenReturn(memberUser);
             doNothing().when(securityHelper).isUserActive(memberUser);
@@ -1040,7 +1059,7 @@ class TaskServiceImplementationTest {
         @DisplayName("Should throw IllegalStateException when task is already unassigned")
         void shouldThrowExceptionWhenTaskAlreadyUnassigned() {
             // Given
-            task.setAssignedTo(null);
+            task.setAssignedUser(null);
 
             when(securityHelper.getCurrentUser()).thenReturn(memberUser);
             doNothing().when(securityHelper).isUserActive(memberUser);
@@ -1058,7 +1077,7 @@ class TaskServiceImplementationTest {
         @DisplayName("Should throw AccessDeniedException when user cannot modify task")
         void shouldThrowExceptionWhenUserCannotModifyTask() {
             // Given
-            task.setAssignedTo(3L);
+            task.setAssignedUser(assigneeUser);
 
             when(securityHelper.getCurrentUser()).thenReturn(memberUser);
             doNothing().when(securityHelper).isUserActive(memberUser);
@@ -1384,4 +1403,3 @@ class TaskServiceImplementationTest {
         }
     }
 }
-

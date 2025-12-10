@@ -5,11 +5,11 @@ import com.taskmanagement.team.dto.TeamCreateDto;
 import com.taskmanagement.team.dto.TeamResponseDto;
 import com.taskmanagement.team.dto.TeamUpdateDto;
 import com.taskmanagement.team.entity.Team;
-import com.taskmanagement.team.entity.TeamMember;
 import com.taskmanagement.team.enums.TeamMemberStatus;
 import com.taskmanagement.team.enums.TeamRole;
 import com.taskmanagement.team.enums.TeamStatus;
 import com.taskmanagement.team.mapper.TeamMapper;
+import com.taskmanagement.team.mapper.TeamMemberMapper;
 import com.taskmanagement.team.repository.TeamMemberRepository;
 import com.taskmanagement.team.repository.TeamRepository;
 import com.taskmanagement.user.entity.User;
@@ -25,45 +25,43 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.Instant;
+
 import java.util.Objects;
 
 
 @AllArgsConstructor
 @Slf4j
-
 @Service
 public class TeamServiceImplementation implements TeamService {
-
 
     private final UserRepository userRepository;
     private final TeamRepository teamRepository;
     private final TeamMapper teamMapper;
+    private final TeamMemberMapper teamMemberMapper;
     private final TeamMemberRepository teamMemberRepository;
-
 
     @Override
     @Transactional
     public TeamResponseDto createTeam(TeamCreateDto teamCreateDto) {
 
-        Objects.requireNonNull ( teamCreateDto , "Team can not be null" );
+        Objects.requireNonNull(teamCreateDto, "Team can not be null");
 
-        var currentUser = getCurrentUser ( );
-        isUserActive ( currentUser );
-        teamUniqueNameCheck ( teamCreateDto.name ( ) );
+        var currentUser = getCurrentUser();
+        isUserActive(currentUser);
+        teamUniqueNameCheck(teamCreateDto.name());
 
-        var toSave = teamMapper.toEntity ( teamCreateDto );
-        toSave.setOwnerId ( currentUser.getId ( ) );
-        toSave.setOwner (  currentUser );
+        var team = teamMapper.toEntity(teamCreateDto);
+        team.setOwner(currentUser);
 
-        teamRepository.save ( toSave );
+        var savedTeam = teamRepository.save(team);
 
-        var teamOwner = teamOwnerBuilder ( currentUser , toSave.getId ( ) );
-        teamMemberRepository.save ( teamOwner );
+        var teamOwner = teamMemberMapper.toOwnerEntity(savedTeam, currentUser);
+        teamOwner.setCreatedBy(currentUser.getId());
+        teamMemberRepository.save(teamOwner);
 
-        log.info ( "Team '{}' created by user {}" , toSave.getName ( ) , currentUser.getId ( ) );
+        log.info("Team '{}' created by user {}", savedTeam.getName(), currentUser.getId());
 
-        return teamMapper.toDto ( toSave );
+        return teamMapper.toDto(savedTeam);
     }
 
 
@@ -266,23 +264,15 @@ public class TeamServiceImplementation implements TeamService {
             throw new UserNotActiveException ( user.getEmail ( ) );
     }
 
-    private Team teamExistsCheck (Long teamId) {
-
-        return teamRepository.findById (  teamId )
-                .orElseThrow ( () -> new TeamNotFoundException ( teamId.toString ( ) ) );
-    }
-
     private Team teamExistsAndActiveCheck(Long teamId) {
 
+        var team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new TeamNotFoundException(teamId));
 
-        var team = teamRepository.findById ( teamId )
-                .orElseThrow ( () -> new TeamNotFoundException ( teamId ) );
-
-        if (team.getStatus ( ) != TeamStatus.ACTIVE)
-            throw new TeamNotFoundException ( teamId );
+        if (team.getStatus() != TeamStatus.ACTIVE)
+            throw new TeamNotFoundException(teamId);
 
         return team;
-
     }
 
     private void isTeamDeleted (Team team) {
@@ -314,58 +304,45 @@ public class TeamServiceImplementation implements TeamService {
 
     }
 
-    private TeamMember teamOwnerBuilder(User user , Long teamId) {
+    private void isMemberInTeam(User user, Long teamId) {
 
-        return TeamMember.builder ( )
-
-                .teamId ( teamId )
-                .userId ( user.getId ( ) )
-                .role ( TeamRole.OWNER )
-                .joinedAt ( Instant.now ( ) )
-                .status ( TeamMemberStatus.ACTIVE )
-
-                .build ( );
-    }
-
-    private void isMemberInTeam(User user , Long teamId) {
-
-        if (!teamMemberRepository.existsByTeamIdAndUserId ( teamId , user.getId ( ) ))
-            throw new AccessDeniedException ( "Members can only access teams they are already within" );
+        if (!teamMemberRepository.existsByTeamIdAndUserId(teamId, user.getId()))
+            throw new AccessDeniedException("Members can only access teams they are already within");
 
     }
 
-    private void teamUniqueNameCheckForUpdate(String teamName , Long teamId) {
-        if (teamRepository.existsByNameIgnoreCaseAndIdNot ( teamName , teamId ))
-            throw new TeamNameAlreadyExistsException ( teamName );
+    private void teamUniqueNameCheckForUpdate(String teamName, Long teamId) {
+        if (teamRepository.existsByNameIgnoreCaseAndIdNot(teamName, teamId))
+            throw new TeamNameAlreadyExistsException(teamName);
     }
 
-    private void updateTeamFields(Team team , TeamUpdateDto teamUpdateDto , Long userId , Long teamId) {
+    private void updateTeamFields(Team team, TeamUpdateDto teamUpdateDto, Long userId, Long teamId) {
 
-        if (teamUpdateDto.name ( ) != null && !teamUpdateDto.name ( ).isBlank ( )) {
-            teamUniqueNameCheckForUpdate ( teamUpdateDto.name ( ) , team.getId ( ) );
-            team.setName ( teamUpdateDto.name ( ).trim ( ) );
+        if (teamUpdateDto.name() != null && !teamUpdateDto.name().isBlank()) {
+            teamUniqueNameCheckForUpdate(teamUpdateDto.name(), team.getId());
+            team.setName(teamUpdateDto.name().trim());
         }
 
-        if (teamUpdateDto.description ( ) != null) {
-            team.setDescription ( teamUpdateDto.description ( ).trim ( ) );
+        if (teamUpdateDto.description() != null) {
+            team.setDescription(teamUpdateDto.description().trim());
         }
 
-        if (teamUpdateDto.status ( ) != null) {
+        if (teamUpdateDto.status() != null) {
 
-            if (!isOwner ( userId , teamId ))
-                throw new AccessDeniedException ( "Only team owners can change the team status" );
+            if (!isOwner(userId, teamId))
+                throw new AccessDeniedException("Only team owners can change the team status");
 
-            team.setStatus ( teamUpdateDto.status ( ) );
+            team.setStatus(teamUpdateDto.status());
         }
     }
 
-    private void updateTeamMembersStatus(Long teamId , TeamMemberStatus status) {
+    private void updateTeamMembersStatus(Long teamId, TeamMemberStatus status) {
 
-        var members = teamMemberRepository.findByTeamId ( teamId );
+        var members = teamMemberRepository.findByTeamId(teamId);
 
-        members.forEach ( member -> member.setStatus ( status ));
+        members.forEach(member -> member.setStatus(status));
 
-        teamMemberRepository.saveAll ( members );
+        teamMemberRepository.saveAll(members);
 
     }
 

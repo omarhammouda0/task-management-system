@@ -108,7 +108,7 @@ class ProjectServiceImplementationTest {
         activeTeam = Team.builder()
                 .name("Test Team")
                 .description("Test Description")
-                .ownerId(2L)
+                .owner(ownerUser)
                 .status(TeamStatus.ACTIVE)
                 .build();
         activeTeam.setId(1L);
@@ -117,16 +117,16 @@ class ProjectServiceImplementationTest {
         targetTeam = Team.builder()
                 .name("Target Team")
                 .description("Target Description")
-                .ownerId(2L)
+                .owner(ownerUser)
                 .status(TeamStatus.ACTIVE)
                 .build();
         targetTeam.setId(2L);
 
-        // Setup project
+        // Setup project with JPA relationship
         project = Project.builder()
                 .name("Test Project")
                 .description("Test Description")
-                .teamId(1L)
+                .team(activeTeam)
                 .status(ProjectStatus.PLANNED)
                 .startDate(Instant.now().plusSeconds(86400))
                 .endDate(Instant.now().plusSeconds(172800))
@@ -193,7 +193,7 @@ class ProjectServiceImplementationTest {
             doNothing().when(securityHelper).validateProjectNameNotExists("Test Project", 1L);
             doNothing().when(securityHelper).dateValidation(any(Instant.class), any(Instant.class));
             when(securityHelper.statusValidation(ProjectStatus.PLANNED)).thenReturn(ProjectStatus.PLANNED);
-            when(projectMapper.toEntity(createProjectDto)).thenReturn(project);
+            when(projectMapper.toEntity(createProjectDto, activeTeam)).thenReturn(project);
             when(projectRepository.save(any(Project.class))).thenReturn(project);
             when(projectMapper.toDto(project)).thenReturn(projectResponseDto);
 
@@ -325,7 +325,7 @@ class ProjectServiceImplementationTest {
             doNothing().when(securityHelper).validateProjectNameNotExists("Test Project", 1L);
             doNothing().when(securityHelper).dateValidation(any(Instant.class), any(Instant.class));
             when(securityHelper.statusValidation(ProjectStatus.PLANNED)).thenReturn(ProjectStatus.PLANNED);
-            when(projectMapper.toEntity(dtoWithSpaces)).thenReturn(project);
+            when(projectMapper.toEntity(dtoWithSpaces, activeTeam)).thenReturn(project);
             when(projectRepository.save(any(Project.class))).thenReturn(project);
             when(projectMapper.toDto(project)).thenReturn(projectResponseDto);
 
@@ -347,7 +347,7 @@ class ProjectServiceImplementationTest {
             doNothing().when(securityHelper).validateProjectNameNotExists("Test Project", 1L);
             doNothing().when(securityHelper).dateValidation(any(Instant.class), any(Instant.class));
             when(securityHelper.statusValidation(ProjectStatus.PLANNED)).thenReturn(ProjectStatus.PLANNED);
-            when(projectMapper.toEntity(createProjectDto)).thenReturn(project);
+            when(projectMapper.toEntity(createProjectDto, activeTeam)).thenReturn(project);
             when(projectRepository.save(any(Project.class))).thenAnswer(invocation -> {
                 Project savedProject = invocation.getArgument(0);
                 assertThat(savedProject.getCreatedBy()).isEqualTo(ownerUser.getId());
@@ -1199,7 +1199,7 @@ class ProjectServiceImplementationTest {
             doNothing().when(securityHelper).isUserActive(adminUser);
             doNothing().when(securityHelper).systemAdminCheck(adminUser);
             when(securityHelper.projectExistsAndNotDeletedCheck(1L)).thenReturn(project);
-            doNothing().when(securityHelper).isTeamExistingAndActiveCheck(2L);
+            when(securityHelper.teamExistsAndActiveCheck(2L)).thenReturn(targetTeam);
             doNothing().when(securityHelper).notSameTeamCheck(1L, 2L);
             doNothing().when(securityHelper).validateProjectNameNotExists("Test Project", 2L);
             when(projectRepository.save(any(Project.class))).thenReturn(project);
@@ -1255,7 +1255,7 @@ class ProjectServiceImplementationTest {
             doNothing().when(securityHelper).isUserActive(adminUser);
             doNothing().when(securityHelper).systemAdminCheck(adminUser);
             when(securityHelper.projectExistsAndNotDeletedCheck(1L)).thenReturn(project);
-            doNothing().when(securityHelper).isTeamExistingAndActiveCheck(1L);
+            when(securityHelper.teamExistsAndActiveCheck(1L)).thenReturn(activeTeam);
             doThrow(new IllegalStateException("Cannot transfer to same team"))
                     .when(securityHelper).notSameTeamCheck(1L, 1L);
 
@@ -1274,7 +1274,7 @@ class ProjectServiceImplementationTest {
             doNothing().when(securityHelper).isUserActive(adminUser);
             doNothing().when(securityHelper).systemAdminCheck(adminUser);
             when(securityHelper.projectExistsAndNotDeletedCheck(1L)).thenReturn(project);
-            doNothing().when(securityHelper).isTeamExistingAndActiveCheck(2L);
+            when(securityHelper.teamExistsAndActiveCheck(2L)).thenReturn(targetTeam);
             doNothing().when(securityHelper).notSameTeamCheck(1L, 2L);
             doThrow(new ProjectNameAlreadyExistsException("Test Project", 2L))
                     .when(securityHelper).validateProjectNameNotExists("Test Project", 2L);

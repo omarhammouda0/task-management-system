@@ -1,28 +1,32 @@
 package com.taskmanagement.task.mapper;
 
+import com.taskmanagement.project.entity.Project;
 import com.taskmanagement.task.dto.CreateTaskDto;
 import com.taskmanagement.task.dto.TaskResponseDto;
 import com.taskmanagement.task.dto.UpdateTaskDto;
 import com.taskmanagement.task.entity.Task;
 import com.taskmanagement.task.enums.TaskPriority;
 import com.taskmanagement.task.enums.TaskStatus;
+import com.taskmanagement.user.entity.User;
 import org.springframework.stereotype.Component;
 
 @Component
 public class TaskMapper {
 
-    public Task toEntity(CreateTaskDto dto) {
+
+    public Task toEntity(CreateTaskDto dto, Project project, User assignedUser) {
         if (dto == null) {
             return null;
         }
 
         return Task.builder()
+
                 .title(dto.title().trim())
                 .description(dto.description() != null ? dto.description().trim() : null)
-                .projectId(dto.projectId())
+                .project(project)
                 .priority(dto.priority() != null ? dto.priority() : TaskPriority.MEDIUM)
                 .status(TaskStatus.TO_DO)
-                .assignedTo(dto.assignedTo())
+                .assignedUser(assignedUser)
                 .dueDate(dto.dueDate())
                 .build();
     }
@@ -33,13 +37,14 @@ public class TaskMapper {
         }
 
         return new TaskResponseDto(
+
                 task.getId(),
                 task.getTitle(),
                 task.getDescription(),
                 task.getStatus(),
                 task.getPriority(),
-                task.getProjectId(),
-                task.getAssignedTo(),
+                task.getProjectIdSafe(),
+                task.getAssignedToSafe(),
                 task.getDueDate(),
                 task.getCompletedAt(),
                 task.getCreatedBy(),
@@ -81,5 +86,10 @@ public class TaskMapper {
         if (dto.dueDate() != null) {
             task.setDueDate(dto.dueDate());
         }
+    }
+
+
+    public void updateAssignedUser(Task task, User assignedUser) {
+        task.setAssignedUser(assignedUser);
     }
 }
