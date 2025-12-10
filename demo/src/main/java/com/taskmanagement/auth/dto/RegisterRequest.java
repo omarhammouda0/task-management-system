@@ -29,13 +29,10 @@ public record RegisterRequest(
         String firstName,
 
         @NotBlank(message = "Last name cannot be blank")
-        String lastName,
+        String lastName
 
 
-        @NotNull(message = "Role is required")
-        @ValidRole(allowedRoles = {Role.ADMIN, Role.MANAGER, Role.MEMBER},
-                message = "Role must be either ADMIN, MANAGER, or MEMBER")
-        Role role
+
 ) {
 }
 

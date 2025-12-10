@@ -30,7 +30,38 @@ public class AuthController {
 
     @Operation(
             summary = "Register a new user",
-            description = "Creates a new user account with the provided details. Returns JWT access token and refresh token upon successful registration."
+            description = """
+                    Creates a new user account with the provided details.
+                    
+                    **Business Logic:**
+                    - User is created with ACTIVE status by default
+                    - Default role is MEMBER
+                    - Password is hashed using BCrypt
+                    - Email verification is not required (can be added later)
+                    - Returns JWT tokens immediately upon successful registration
+                    - Access token expires in 15 minutes (900000ms)
+                    - Refresh token expires in 7 days (604800000ms)
+                    
+                    **⚠️ IMPORTANT - Role Assignment:**
+                    - User role is ALWAYS set to MEMBER (hardcoded for security)
+                    - Even if you send "role": "ADMIN" in the request, it will be IGNORED
+                    - Only system admins can create users with ADMIN role (use /api/users endpoint)
+                    - This prevents unauthorized privilege escalation
+                    
+                    **Validations:**
+                    - Email: Required, valid email format, must be unique
+                    - Password: Required, minimum 8 characters, must contain uppercase, lowercase, and number
+                    - First Name: Required, max 50 characters
+                    - Last Name: Required, max 50 characters
+                    
+                    **Security:**
+                    - Password is hashed with BCrypt (cost factor 10)
+                    - JWT tokens are signed with HS256 algorithm
+                    - Refresh token is stored securely in database
+                    - Role field in request body is ignored (security measure)
+                    
+                    **No Authentication Required**: This is a public endpoint
+                    """
     )
     @ApiResponses(value = {
             @ApiResponse(
@@ -52,8 +83,8 @@ public class AuthController {
                             )
                     )
             ),
-            @ApiResponse(responseCode = "400", description = "Invalid input - validation error"),
-            @ApiResponse(responseCode = "409", description = "Email already exists")
+            @ApiResponse(responseCode = "400", description = "Invalid input - validation error (weak password, invalid email format, missing fields)"),
+            @ApiResponse(responseCode = "409", description = "Conflict - Email already exists in the system")
     })
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(
@@ -84,7 +115,31 @@ public class AuthController {
 
     @Operation(
             summary = "Login user",
-            description = "Authenticates user with email and password. Returns JWT access token and refresh token upon successful authentication."
+            description = """
+                    Authenticates user with email and password.
+                    
+                    **Business Logic:**
+                    - Validates credentials against stored BCrypt hash
+                    - User must have ACTIVE status to login
+                    - INACTIVE, SUSPENDED, or DELETED users cannot login
+                    - Generates new JWT access and refresh tokens
+                    - Previous refresh tokens remain valid until they expire
+                    - Access token expires in 15 minutes
+                    - Refresh token expires in 7 days
+                    
+                    **Validations:**
+                    - Email: Required, must exist in system
+                    - Password: Required, must match stored hash
+                    - User Status: Must be ACTIVE
+                    
+                    **Security:**
+                    - Failed login attempts are logged
+                    - Passwords are never returned in response
+                    - Tokens include user role for authorization
+                    - Case-insensitive email matching
+                    
+                    **No Authentication Required**: This is a public endpoint
+                    """
     )
     @ApiResponses(value = {
             @ApiResponse(
@@ -106,8 +161,8 @@ public class AuthController {
                             )
                     )
             ),
-            @ApiResponse(responseCode = "400", description = "Invalid input"),
-            @ApiResponse(responseCode = "401", description = "Invalid credentials")
+            @ApiResponse(responseCode = "400", description = "Invalid input - missing email or password"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid credentials or user account is not active")
     })
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(
@@ -136,7 +191,31 @@ public class AuthController {
 
     @Operation(
             summary = "Refresh access token",
-            description = "Generates a new access token using a valid refresh token. Use this when the access token expires."
+            description = """
+                    Generates a new access token using a valid refresh token.
+                    
+                    **Business Logic:**
+                    - Use this when access token expires (after 15 minutes)
+                    - Validates refresh token against database
+                    - Refresh token must not be expired or revoked
+                    - Generates new access token with same permissions
+                    - Does NOT generate a new refresh token
+                    - User must still be ACTIVE to refresh
+                    
+                    **Token Lifecycle:**
+                    - Access Token: 15 minutes (900000ms)
+                    - Refresh Token: 7 days (604800000ms)
+                    - Old access tokens become invalid immediately
+                    - Refresh token remains valid for its full lifetime
+                    
+                    **Security:**
+                    - Refresh token is validated against database
+                    - Expired refresh tokens are automatically cleaned up
+                    - User status is checked before issuing new access token
+                    - Invalid or tampered tokens are rejected
+                    
+                    **No Authentication Required**: Refresh token serves as authentication
+                    """
     )
     @ApiResponses(value = {
             @ApiResponse(
@@ -144,8 +223,8 @@ public class AuthController {
                     description = "Token refreshed successfully",
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = AuthResponse.class))
             ),
-            @ApiResponse(responseCode = "400", description = "Invalid refresh token"),
-            @ApiResponse(responseCode = "401", description = "Refresh token expired or revoked")
+            @ApiResponse(responseCode = "400", description = "Invalid refresh token format"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - Refresh token expired, revoked, or user inactive")
     })
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refreshToken(
@@ -172,11 +251,32 @@ public class AuthController {
 
     @Operation(
             summary = "Logout user",
-            description = "Invalidates the refresh token to logout the user. The access token will remain valid until it expires."
+            description = """
+                    Invalidates the refresh token to logout the user.
+                    
+                    **Business Logic:**
+                    - Removes refresh token from database (revokes it)
+                    - User must obtain new tokens via login to continue
+                    - Access token remains valid until expiration (15 minutes)
+                    - For complete security, client should discard access token
+                    - Multiple devices can have different refresh tokens
+                    
+                    **Token Behavior:**
+                    - Refresh token: Immediately invalidated
+                    - Access token: Valid until natural expiration
+                    - Client responsibility: Delete stored tokens
+                    
+                    **Security Note:**
+                    If access token is compromised, it remains valid until expiration.
+                    For critical operations, consider implementing token blacklist.
+                    
+                    **No Authentication Required**: Refresh token serves as authentication
+                    """
     )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "204", description = "Logout successful"),
-            @ApiResponse(responseCode = "400", description = "Invalid refresh token")
+            @ApiResponse(responseCode = "204", description = "Logout successful - refresh token invalidated"),
+            @ApiResponse(responseCode = "400", description = "Invalid refresh token format"),
+            @ApiResponse(responseCode = "404", description = "Refresh token not found or already revoked")
     })
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(

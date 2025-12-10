@@ -84,8 +84,7 @@ class AuthServiceImplTest {
                 "test@example.com",
                 "Password123!",
                 "John",
-                "Doe",
-                Role.MEMBER
+                "Doe"
         );
 
         // Setup login request
@@ -194,8 +193,7 @@ class AuthServiceImplTest {
                     "TEST@EXAMPLE.COM",
                     "Password123!",
                     "John",
-                    "Doe",
-                    Role.MEMBER
+                    "Doe"
             );
 
             when(userRepository.existsByEmailIgnoreCase(anyString())).thenReturn(false);
@@ -223,8 +221,7 @@ class AuthServiceImplTest {
                     "test@example.com",
                     "Password123!",
                     "  John  ",
-                    "  Doe  ",
-                    Role.MEMBER
+                    "  Doe  "
             );
 
             when(userRepository.existsByEmailIgnoreCase(anyString())).thenReturn(false);
