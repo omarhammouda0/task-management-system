@@ -78,11 +78,30 @@ public class OpenApiConfig {
     public OperationCustomizer customizePageableParameter() {
         return (operation, handlerMethod) -> {
             if (operation.getParameters() != null) {
+                // Remove the auto-generated pageable object parameter
+                operation.getParameters().removeIf(parameter -> "pageable".equals(parameter.getName()));
+
+                // Customize individual sort parameters
                 operation.getParameters().forEach(parameter -> {
                     if ("sort".equals(parameter.getName())) {
-                        // Set default sort to "createdAt,desc" to avoid internal server error
                         parameter.setExample("createdAt,desc");
-                        parameter.setDescription("Sorting criteria in the format: property(,asc|desc). Default sort order is descending. Multiple sort criteria are supported. Example: createdAt,desc or createdAt,desc&sort=id,asc");
+                        parameter.setDescription("Sorting criteria in the format: property(,asc|desc). Default sort order is descending. Multiple sort criteria are supported. Example: createdAt,desc");
+
+                        // Modify the schema to show proper default
+                        if (parameter.getSchema() != null) {
+                            parameter.getSchema().setDefault("createdAt,desc");
+                            parameter.getSchema().setExample("createdAt,desc");
+                        }
+                    }
+
+                    if ("page".equals(parameter.getName())) {
+                        parameter.setDescription("Page number (0-based)");
+                        parameter.setExample("0");
+                    }
+
+                    if ("size".equals(parameter.getName())) {
+                        parameter.setDescription("Number of items per page (max 100)");
+                        parameter.setExample("20");
                     }
                 });
             }

@@ -199,6 +199,7 @@ springdoc:
     tags-sorter: alpha
     display-request-duration: true
     doc-expansion: none
+    default-flat-param-object: true
     filter: true
   show-actuator: false
 
