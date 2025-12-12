@@ -34,6 +34,11 @@ public class TeamMemberController {
             description = """
                     Adds a user as a member to a team with a specified role.
                     
+                    **📋 Required Fields:**
+                    - `teamId` (Long) - ID of the team ✅ REQUIRED
+                    - `userId` (Long) - ID of the user to add ✅ REQUIRED
+                    - `role` (String) - Member role (optional, defaults to MEMBER)
+                    
                     **Business Logic:**
                     - Only team OWNER can add new members to the team
                     - User must not already be a member of the team
@@ -234,6 +239,11 @@ public class TeamMemberController {
             summary = "Update member role",
             description = """
                     Updates the role of a team member.
+                    
+                    **📋 Required Fields:**
+                    - `memberId` (Long) - ID of the team member record ✅ REQUIRED
+                    - `teamId` (Long) - ID of the team ✅ REQUIRED
+                    - `newRole` (String) - New role: OWNER, ADMIN, or MEMBER ✅ REQUIRED
                     
                     **Business Logic:**
                     - Only team OWNER can update member roles

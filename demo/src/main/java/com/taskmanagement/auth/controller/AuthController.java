@@ -28,10 +28,19 @@ public class AuthController {
 
     private final AuthService authService;
 
+
+
     @Operation(
             summary = "Register a new user",
             description = """
                     Creates a new user account with the provided details.
+                    
+                    **📋 Required Fields:**
+                    - `userName` (String, 2-50 chars) - Username ✅ REQUIRED
+                    - `email` (String) - Valid email address ✅ REQUIRED
+                    - `password` (String, min 10 chars) - Strong password ✅ REQUIRED
+                    - `firstName` (String) - First name ✅ REQUIRED
+                    - `lastName` (String) - Last name ✅ REQUIRED
                     
                     **Business Logic:**
                     - User is created with ACTIVE status by default
@@ -118,6 +127,10 @@ public class AuthController {
             description = """
                     Authenticates user with email and password.
                     
+                    **📋 Required Fields:**
+                    - `email` (String) - Registered email address ✅ REQUIRED
+                    - `password` (String) - Account password ✅ REQUIRED
+                    
                     **Business Logic:**
                     - Validates credentials against stored BCrypt hash
                     - User must have ACTIVE status to login
@@ -194,6 +207,9 @@ public class AuthController {
             description = """
                     Generates a new access token using a valid refresh token.
                     
+                    **📋 Required Fields:**
+                    - `refreshToken` (String) - Valid refresh token from login ✅ REQUIRED
+                    
                     **Business Logic:**
                     - Use this when access token expires (after 15 minutes)
                     - Validates refresh token against database
@@ -253,6 +269,9 @@ public class AuthController {
             summary = "Logout user",
             description = """
                     Invalidates the refresh token to logout the user.
+                    
+                    **📋 Required Fields:**
+                    - `refreshToken` (String) - Valid refresh token to invalidate ✅ REQUIRED
                     
                     **Business Logic:**
                     - Removes refresh token from database (revokes it)

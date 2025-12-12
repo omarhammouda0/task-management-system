@@ -35,6 +35,10 @@ public class AttachmentController {
             description = """
                     Uploads a file attachment to a specific task.
                     
+                    **📋 Required Fields:**
+                    - `taskId` (Path) - ID of the task ✅ REQUIRED
+                    - `file` (MultipartFile) - File to upload (max 10MB) ✅ REQUIRED
+                    
                     **Business Logic:**
                     - File is stored in MinIO object storage
                     - Generates unique filename to prevent conflicts

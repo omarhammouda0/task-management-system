@@ -39,6 +39,14 @@ public class ProjectController {
             description = """
                     Creates a new project associated with a team.
                     
+                    **📋 Required Fields:**
+                    - `teamId` (Long) - ID of the team ✅ REQUIRED
+                    - `name` (String, max 100 chars) - Project name ✅ REQUIRED
+                    - `description` (String, max 500 chars) - Description (optional)
+                    - `status` (String) - PLANNED, ACTIVE, ON_HOLD (optional, defaults to PLANNED)
+                    - `startDate` (ISO DateTime) - Start date (optional)
+                    - `endDate` (ISO DateTime) - End date (optional)
+                    
                     **Business Logic:**
                     - Project is created under the specified team
                     - Project name must be unique within the team (case-insensitive)
@@ -237,6 +245,9 @@ public class ProjectController {
             description = """
                     Transfers a project from one team to another.
                     
+                    **📋 Required Fields:**
+                    - `newTeamId` (Long) - ID of the target team ✅ REQUIRED
+                    
                     **Business Logic:**
                     - Project is moved to the target team
                     - Project name must be unique in the target team
@@ -421,6 +432,13 @@ public class ProjectController {
             summary = "Update a project",
             description = """
                     Updates an existing project. Only provided fields will be updated (partial update).
+                    
+                    **📋 Optional Fields (all fields are optional - partial update):**
+                    - `name` (String, max 100 chars) - New project name (optional)
+                    - `description` (String, max 500 chars) - New description (optional)
+                    - `status` (String) - PLANNED, ACTIVE, ON_HOLD, COMPLETED, ARCHIVED (optional)
+                    - `startDate` (ISO DateTime) - New start date (optional)
+                    - `endDate` (ISO DateTime) - New end date (optional)
                     
                     **Business Logic:**
                     - At least one field must be provided for update

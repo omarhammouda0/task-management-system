@@ -36,6 +36,10 @@ public class CommentController {
             description = """
                     Adds a new comment to a task for discussions, updates, and feedback.
                     
+                    **📋 Required Fields:**
+                    - `taskId` (Long) - ID of the task to comment on ✅ REQUIRED
+                    - `content` (String, 1-2000 chars) - Comment text ✅ REQUIRED
+                    
                     **Business Logic:**
                     - Comment is created with ACTIVE status by default
                     - User must be a member of the task's project team to comment
@@ -158,6 +162,9 @@ public class CommentController {
             summary = "Update a comment",
             description = """
                     Updates an existing comment content.
+                    
+                    **📋 Required Fields:**
+                    - `content` (String, 1-2000 chars) - New comment text ✅ REQUIRED
                     
                     **Business Logic:**
                     - Only the comment author can update their own comment

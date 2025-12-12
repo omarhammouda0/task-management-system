@@ -38,6 +38,14 @@ public class UserController {
             description = """
                     Creates a new user account. **Requires ADMIN role.**
                     
+                    **📋 Required Fields:**
+                    - `email` (String, max 255 chars) - Email address ✅ REQUIRED
+                    - `password` (String, 8-100 chars) - Strong password ✅ REQUIRED
+                    - `firstName` (String, 2-100 chars) - First name ✅ REQUIRED
+                    - `lastName` (String, 2-100 chars) - Last name ✅ REQUIRED
+                    - `role` (String) - ADMIN or MEMBER (optional, defaults to MEMBER)
+                    - `userStatus` (String) - User status (optional, defaults to ACTIVE)
+                    
                     **Business Logic:**
                     - Only system administrators can create users
                     - User is created with specified role (ADMIN or MEMBER)
@@ -242,6 +250,15 @@ public class UserController {
             summary = "Update user",
             description = """
                     Updates user information. Users can update their own profile, admins can update any user.
+                    
+                    **📋 Optional Fields (all fields are optional - partial update):**
+                    - `email` (String) - New email address (optional)
+                    - `firstName` (String, 2-100 chars) - First name (optional)
+                    - `lastName` (String, 2-100 chars) - Last name (optional)
+                    - `password` (String, 8-100 chars) - New password (optional)
+                    - `role` (String) - ADMIN or MEMBER (Admin only, optional)
+                    - `avatarUrl` (String, max 500 chars) - Profile picture URL (optional)
+                    - `status` (String) - User status (Admin only, optional)
                     
                     **Business Logic:**
                     - Users can update their own profile (firstName, lastName, avatarUrl)

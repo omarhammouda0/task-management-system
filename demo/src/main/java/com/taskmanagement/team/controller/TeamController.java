@@ -36,6 +36,10 @@ public class TeamController {
             description = """
                     Creates a new team in the system.
                     
+                    **📋 Required Fields:**
+                    - `name` (String, 2-100 chars) - Team name ✅ REQUIRED
+                    - `description` (String, max 500 chars) - Team description (optional)
+                    
                     **Business Logic:**
                     - The authenticated user automatically becomes the team OWNER
                     - A TeamMember record is created with OWNER role for the creator
@@ -248,6 +252,11 @@ public class TeamController {
             summary = "Update a team",
             description = """
                     Updates an existing team's information.
+                    
+                    **📋 Optional Fields (all fields are optional - partial update):**
+                    - `name` (String, 2-100 chars) - New team name (optional)
+                    - `description` (String, max 500 chars) - New description (optional)
+                    - `status` (String) - ACTIVE or INACTIVE (optional)
                     
                     **Business Logic:**
                     - Only team OWNER or system ADMIN can update team details

@@ -37,6 +37,15 @@ public class TaskController {
             description = """
                     Creates a new task within a project.
                     
+                    **📋 Required Fields:**
+                    - `title` (String, max 200 chars) - Task title ✅ REQUIRED
+                    - `projectId` (Long) - Project ID ✅ REQUIRED
+                    - `description` (String, max 1000 chars) - Description (optional)
+                    - `priority` (String) - LOW, MEDIUM, HIGH, URGENT (optional, defaults to MEDIUM)
+                    - `status` (String) - TO_DO, IN_PROGRESS, etc. (optional, defaults to TO_DO)
+                    - `assignedTo` (Long) - User ID to assign (optional)
+                    - `dueDate` (ISO DateTime) - Due date (optional)
+                    
                     **Business Logic:**
                     - Task will be created with TO_DO status by default
                     - Priority defaults to MEDIUM if not specified
@@ -167,6 +176,14 @@ public class TaskController {
             description = """
                     Updates an existing task. Only provided fields will be updated (partial update supported).
                     
+                    **📋 Optional Fields (all fields are optional - partial update):**
+                    - `title` (String, max 200 chars) - New task title (optional)
+                    - `description` (String, max 1000 chars) - New description (optional)
+                    - `status` (String) - TO_DO, IN_PROGRESS, IN_REVIEW, DONE, BLOCKED (optional)
+                    - `priority` (String) - LOW, MEDIUM, HIGH, URGENT (optional)
+                    - `assignedTo` (Long) - User ID to assign (optional, null to unassign)
+                    - `dueDate` (ISO DateTime) - Due date (optional)
+                    
                     **Business Logic:**
                     - Partial updates supported - only send fields you want to change
                     - At least one field must be provided
@@ -265,6 +282,9 @@ public class TaskController {
             summary = "Assign task to user",
             description = """
                     Assigns a task to a specific user within the project's team.
+                    
+                    **📋 Required Fields:**
+                    - `userId` (Long) - ID of the user to assign ✅ REQUIRED
                     
                     **Business Logic:**
                     - Assignee must be an active member of the project's team
