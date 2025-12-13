@@ -110,7 +110,8 @@ public class AuthController {
                                                 "email": "john.doe@example.com",
                                                 "password": "SecurePass123!",
                                                 "firstName": "John",
-                                                "lastName": "Doe"
+                                                "lastName": "Doe" ,
+                                                "userName": "john_doe_09"
                                             }
                                             """
                             )
