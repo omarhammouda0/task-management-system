@@ -69,6 +69,10 @@ public class AuthController {
                     - Refresh token is stored securely in database
                     - Role field in request body is ignored (security measure)
                     
+                    **Note:**
+                    - The example data might be already in use; adjust accordingly.
+                    - The data provided during registration should comply with validation rules to avoid errors.
+                    
                     **No Authentication Required**: This is a public endpoint
                     """
     )

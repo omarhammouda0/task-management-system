@@ -50,16 +50,11 @@ public class OpenApiConfig {
                                 - **MANAGER**: Can manage team members and project settings
                                 - **ADMIN**: Full system access including user management
                                 """)
-                        .contact(new Contact()
-                                .name("Task Management System Support")
-                                .email("support@taskmanagement.com")
-                                .url("https://taskmanagement.com"))
+
                         .license(new License()
                                 .name("MIT License")
                                 .url("https://opensource.org/licenses/MIT")))
-                .externalDocs(new ExternalDocumentation()
-                        .description("Task Management System Documentation")
-                        .url("https://docs.taskmanagement.com"))
+
                 .servers(List.of(
                         new Server()
                                 .url("/")
